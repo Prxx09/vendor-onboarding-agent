@@ -88,6 +88,14 @@ function formatDate(value, includeTime = false) {
   }).format(date);
 }
 
+function formatConfidence(value) {
+  return value == null ? "Not scored" : `${Number(value)}%`;
+}
+
+function meterWidth(value) {
+  return value == null ? 0 : Math.max(0, Math.min(100, Number(value) || 0));
+}
+
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "Ready for extraction";
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -174,11 +182,12 @@ function renderMetrics() {
   const total = state.cases.length;
   const approved = state.cases.filter((item) => ["AUTO_APPROVED", "APPROVED"].includes(item.status)).length;
   const review = casesNeedingAttention().length;
-  const average = total ? Math.round(state.cases.reduce((sum, item) => sum + item.confidence, 0) / total) : 0;
+  const scored = state.cases.filter((item) => item.confidence != null);
+  const average = scored.length ? Math.round(scored.reduce((sum, item) => sum + Number(item.confidence), 0) / scored.length) : null;
   qs("#metricTotal").textContent = total;
   qs("#metricApproved").textContent = approved;
   qs("#metricReview").textContent = review;
-  qs("#metricConfidence").textContent = `${average}%`;
+  qs("#metricConfidence").textContent = formatConfidence(average);
   qs("#metricApprovalRate").textContent = `${total ? Math.round((approved / total) * 100) : 0}% approval rate`;
   qs("#metricThresholdCopy").textContent = `Target ${state.threshold}%`;
   qs("#reviewNavCount").textContent = review;
@@ -205,7 +214,7 @@ function renderCaseTable() {
       <td><strong>${escapeHtml(item.id)}</strong></td>
       <td>${escapeHtml(item.category)}</td>
       <td>${escapeHtml(formatDate(item.submitted_at))}</td>
-      <td><div class="confidence-cell"><strong>${Number(item.confidence)}%</strong><span class="mini-meter" aria-hidden="true"><span style="width:${Number(item.confidence)}%"></span></span></div></td>
+      <td><div class="confidence-cell"><strong>${formatConfidence(item.confidence)}</strong><span class="mini-meter" aria-hidden="true"><span style="width:${formatConfidence(item.confidence)}"></span></span></div></td>
       <td>${statusBadge(item.status)}</td>
       <td><button class="icon-btn row-action" data-open-case="${escapeHtml(item.id)}" type="button" aria-label="Open ${escapeHtml(item.vendor_name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></td>
     </tr>
@@ -237,7 +246,7 @@ function renderReviewQueue({ preserveSelection = true } = {}) {
     <button class="queue-case ${state.selectedCase?.id === item.id ? "active" : ""}" data-open-case="${escapeHtml(item.id)}" type="button">
       <div class="queue-case-top"><strong>${escapeHtml(item.vendor_name)}</strong>${statusBadge(item.status)}</div>
       <div class="queue-case-meta"><span>${escapeHtml(item.id)}</span><span>${escapeHtml(item.risk_level)} risk</span></div>
-      <div class="queue-case-score"><span class="mini-meter" aria-hidden="true"><span style="width:${Number(item.confidence)}%"></span></span><strong>${Number(item.confidence)}%</strong></div>
+      <div class="queue-case-score"><span class="mini-meter" aria-hidden="true"><span style="width:${formatConfidence(item.confidence)}"></span></span><strong>${formatConfidence(item.confidence)}</strong></div>
     </button>
   `).join("");
   renderCaseDetail(state.selectedCase);
@@ -251,12 +260,12 @@ function renderCaseDetail(item) {
     return;
   }
 
-  const belowThreshold = item.confidence < state.threshold;
+  const belowThreshold = item.confidence != null && item.confidence < state.threshold;
   const missingChecks = item.checks.filter((check) => ["Review", "Fail"].includes(check.result));
   const history = state.audit.filter((event) => event.case_id === item.id);
   const criticalFailures = item.checks.filter((check) => check.result === "Fail").map((check) => check.name);
   const decisionReason = getDecisionReason(item, criticalFailures);
-  const activeTab = ["overview", "scorecard", "history"].includes(state.caseDetailTab) ? state.caseDetailTab : "overview";
+  const activeTab = ["overview", "submission", "scorecard", "history"].includes(state.caseDetailTab) ? state.caseDetailTab : "overview";
   detail.innerHTML = `
     <div class="case-detail">
       <div class="detail-header">
@@ -265,10 +274,12 @@ function renderCaseDetail(item) {
       </div>
       <div class="case-tabs" role="tablist" aria-label="${escapeHtml(item.id)} details">
         <button class="case-tab ${activeTab === "overview" ? "active" : ""}" data-case-tab="overview" role="tab" aria-selected="${activeTab === "overview"}">Overview</button>
+        <button class="case-tab ${activeTab === "submission" ? "active" : ""}" data-case-tab="submission" role="tab" aria-selected="${activeTab === "submission"}">Submitted form &amp; documents</button>
         <button class="case-tab ${activeTab === "scorecard" ? "active" : ""}" data-case-tab="scorecard" role="tab" aria-selected="${activeTab === "scorecard"}">Scorecard <span>${item.checks.length}</span></button>
         <button class="case-tab ${activeTab === "history" ? "active" : ""}" data-case-tab="history" role="tab" aria-selected="${activeTab === "history"}">History <span>${history.length}</span></button>
       </div>
       ${activeTab === "overview" ? renderCaseOverview(item, missingChecks, decisionReason) : ""}
+      ${activeTab === "submission" ? renderCaseSubmission(item) : ""}
       ${activeTab === "scorecard" ? renderCaseScorecard(item) : ""}
       ${activeTab === "history" ? renderCaseHistory(item, history) : ""}
       ${activeTab === "overview" ? `
@@ -279,8 +290,8 @@ function renderCaseDetail(item) {
         <div><span>Assigned to</span><strong>${escapeHtml(item.assigned_to)}</strong></div>
       </div>
       <section class="confidence-overview">
-        <div><div><h3>Decision confidence</h3><p>${belowThreshold ? "Below the auto-approval threshold" : "Meets the auto-approval threshold"}</p></div><strong>${Number(item.confidence)}%</strong></div>
-        <div class="threshold-meter" aria-label="Confidence ${Number(item.confidence)} percent; threshold ${state.threshold} percent"><div class="score-fill" style="width:${Number(item.confidence)}%"></div><span class="threshold-marker" style="left:${state.threshold}%" data-label="${state.threshold}% threshold"></span></div>
+        <div><div><h3>Decision confidence</h3><p>${item.confidence == null ? "No confidence score recorded" : (belowThreshold ? "Below the auto-approval threshold" : "Meets the auto-approval threshold")}</p></div><strong>${formatConfidence(item.confidence)}</strong></div>
+        <div class="threshold-meter" aria-label="Confidence ${Number(item.confidence)} percent; threshold ${state.threshold} percent"><div class="score-fill" style="width:${formatConfidence(item.confidence)}"></div><span class="threshold-marker" style="left:${state.threshold}%" data-label="${state.threshold}% threshold"></span></div>
       </section>
       <section class="checks-section">
         <h3>Validation evidence</h3>
@@ -310,6 +321,7 @@ function renderCaseDetail(item) {
 }
 
 function getDecisionReason(item, criticalFailures = []) {
+  if (item.confidence == null) return `This synthetic sample has no calculated confidence score. Its recorded status is ${item.source_status || statusLabel(item.status)}.`;
   const failedText = criticalFailures.length ? ` Critical checks failed: ${criticalFailures.join(", ")}.` : "";
   if (item.status === "AUTO_APPROVED") return `Confidence score ${item.confidence} meets the ${state.threshold}% threshold and all critical checks passed.`;
   if (item.status === "APPROVED") return `Reviewer approved the vendor after reviewing the evidence. Confidence score was ${item.confidence}% against a ${state.threshold}% threshold.`;
@@ -325,13 +337,41 @@ function renderCaseOverview(item, missingChecks, decisionReason) {
       <div><span>Decision rationale</span><strong>${escapeHtml(statusLabel(item.status))}</strong><p>${escapeHtml(decisionReason)}</p></div>
     </div>
     ${missingChecks.length ? `<div class="missing-info"><div class="missing-icon" aria-hidden="true">!</div><div><strong>Missing or unresolved information</strong><p>${missingChecks.map((check) => `<span>${escapeHtml(check.name)}: ${escapeHtml(check.detail)}</span>`).join("")}</p></div></div>` : `<div class="complete-info"><span aria-hidden="true">✓</span><div><strong>All validation sections resolved</strong><p>No missing information was flagged for this case.</p></div></div>`}
-    <div class="score-summary"><div><span>Overall confidence</span><strong>${Number(item.confidence)}%</strong></div><div><span>Approval threshold</span><strong>${state.threshold}%</strong></div><div><span>Sections reviewed</span><strong>${item.checks.length}</strong></div></div>
+    <div class="score-summary"><div><span>Overall confidence</span><strong>${formatConfidence(item.confidence)}</strong></div><div><span>Approval threshold</span><strong>${state.threshold}%</strong></div><div><span>Sections reviewed</span><strong>${item.checks.length}</strong></div></div>
   `;
+}
+
+function renderCaseSubmission(item) {
+  const labels = {
+    legal_name: "Legal name", supplier_name: "Supplier name", supplier_type: "Supplier type",
+    tax_id: "Tax ID / GSTIN", pan: "PAN", bank_account: "Bank account",
+    ifsc: "IFSC", registered_address: "Registered address", address: "Address",
+    contact_email: "Contact email", category: "Category", region: "Region",
+    country: "Country", compliance_confirmed: "Compliance declaration",
+    description: "Purchase description", estimated_annual_spend: "Estimated annual spend",
+    currency: "Currency", payment_terms: "Payment terms",
+    requesting_department: "Requesting department", budget_owner: "Budget owner",
+    procurement_owner: "Procurement owner", submitted_by: "Submitted by"
+  };
+  const fields = item.submitted_form || item.extracted_fields || {};
+  const rows = Object.entries(fields).filter(([key, value]) => value !== null && value !== "" && typeof value !== "object");
+  const documents = item.documents || [];
+  return `<section class="submission-section">
+    <div class="scorecard-heading"><div><h3>Submitted form</h3><p>Values recorded when this case was submitted.</p></div></div>
+    <dl class="submitted-grid">${rows.length ? rows.map(([key, value]) => `
+      <div><dt>${escapeHtml(labels[key] || key.replaceAll("_", " "))}</dt><dd>${escapeHtml(typeof value === "boolean" ? (value ? "Yes" : "No") : value)}</dd></div>
+    `).join("") : '<div>No submitted form is available for this case.</div>'}</dl>
+    <div class="scorecard-heading documents-heading"><div><h3>Documents</h3><p>Files attached to this case.</p></div><strong>${documents.length} ${documents.length === 1 ? "file" : "files"}</strong></div>
+    <div class="document-list">${documents.length ? documents.map((doc) => `
+      <div class="document-row"><div><strong>${escapeHtml(doc.name)}</strong><small>${escapeHtml(doc.type || "Document")}${doc.uploaded_at ? " · " + escapeHtml(formatDate(doc.uploaded_at, true)) : ""}</small></div>
+        ${doc.available ? `<a class="secondary-btn" href="/api/demo-cases/${encodeURIComponent(item.id)}/documents/${encodeURIComponent(doc.id)}" target="_blank" rel="noopener">Open file</a>` : '<span class="document-unavailable">File not stored</span>'}
+      </div>`).join("") : '<p class="document-empty">No documents were recorded for this case.</p>'}</div>
+  </section>`;
 }
 
 function renderCaseScorecard(item) {
   return `
-    <section class="scorecard-section"><div class="scorecard-heading"><div><h3>Validation scorecard</h3><p>Each section contributes to the final confidence score.</p></div><strong>${Number(item.confidence)}% overall</strong></div>
+    <section class="scorecard-section"><div class="scorecard-heading"><div><h3>Validation scorecard</h3><p>Each section contributes to the final confidence score.</p></div><strong>${formatConfidence(item.confidence)} overall</strong></div>
       <div class="scorecard-grid">${item.checks.map((check) => {
         const positive = check.result === "Pass";
         return `<article class="score-card ${positive ? "pass" : "fail"}"><div class="score-card-top"><span>${escapeHtml(check.name)}</span>${statusBadge(check.result)}</div><div class="score-number">${Number(check.score)}<small>/100</small></div><div class="score-line"><span style="width:${Number(check.score)}%"></span></div><p>${escapeHtml(check.detail)}</p></article>`;
@@ -390,7 +430,7 @@ function renderAudit() {
           <span class="audit-chevron" aria-hidden="true">⌄</span>
         </summary>
         <div class="audit-case-content">
-          <div class="audit-case-caption">Case journey · oldest to newest</div>
+          <div class="audit-case-caption">Case journey · oldest to newest <button class="tertiary-btn audit-view-case" type="button" data-open-case="${escapeHtml(caseId)}">View submitted form &amp; documents</button></div>
           <div class="case-timeline">
             ${ordered.map((event) => `<article>
               <span class="timeline-dot" aria-hidden="true"></span>
@@ -582,7 +622,10 @@ async function submitIntake(event) {
   showAlert();
 
   try {
-    const created = await api("/api/intake/submit", { method: "POST", body: JSON.stringify(payload) });
+    const submission = new FormData();
+    submission.append("payload", JSON.stringify(payload));
+    submission.append("file", qs("#documentInput").files[0]);
+    const created = await api("/api/intake/submit", { method: "POST", body: submission });
     state.cases.unshift(created);
     await loadAudit();
     state.selectedCase = created;
@@ -604,7 +647,7 @@ async function openCase(caseId) {
   } catch {
     state.selectedCase = state.cases.find((candidate) => candidate.id === caseId) || null;
   }
-  state.caseDetailTab = "overview";
+  state.caseDetailTab = "submission";
   switchView("review");
   renderReviewQueue();
 }
