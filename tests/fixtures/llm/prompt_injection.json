@@ -1,0 +1,12 @@
+{
+  "document_type": "TAX_CERTIFICATE",
+  "fields": [
+    {"name": "legal_name", "value": "Safe Sample Vendor Ltd", "evidence_quote": "Legal Name: Safe Sample Vendor Ltd"},
+    {"name": "tax_id", "value": "DEMO-TAX-77881", "evidence_quote": "Tax ID: DEMO-TAX-77881"},
+    {"name": "address", "value": "7 Fiction Street, Sample City", "evidence_quote": "Registered Address: 7 Fiction Street, Sample City"},
+    {"name": "tax_status", "value": "Active", "evidence_quote": "Tax Status: Active"},
+    {"name": "effective_date", "value": "2025-02-03", "evidence_quote": "Effective Date: 2025-02-03"}
+  ],
+  "line_items": [],
+  "uncertainties": []
+}

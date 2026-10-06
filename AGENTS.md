@@ -19,4 +19,4 @@ pip install -e ".[dev]"; python -m pytest -q; ruff check .
 ## Definition of done for every phase
 Tests green, ruff clean, only files in the phase scope changed, and a final report with: (a) files created/modified, (b) how to run/verify, (c) assumptions made, (d) anything intentionally deferred. Keep the report under 40 lines. Do not ask questions; make reasonable assumptions and list them.
 ## Phase status
-[x] 0 Foundation  [x] 1 Supabase  [ ] 2 Document understanding  [ ] 3 Validation  [ ] 4 Risk  [ ] 5 Orchestrator  [ ] 6 Human review  [ ] 7 Drafts  [ ] 8 E2E + facade
+[x] 0 Foundation  [x] 1 Supabase  [x] 2 Document understanding  [ ] 3 Validation  [ ] 4 Risk  [ ] 5 Orchestrator  [ ] 6 Human review  [ ] 7 Drafts  [ ] 8 E2E + facade

@@ -1,0 +1,14 @@
+{
+  "document_type": "BANK_DOCUMENT",
+  "fields": [
+    {"name": "account_holder_name", "value": "Aster & Pine Demo Supplies Ltd", "evidence_quote": "Account Holder Name: Aster & Pine Demo Supplies Ltd"},
+    {"name": "bank_name", "value": "Imaginary Bank of Example", "evidence_quote": "Bank Name: Imaginary Bank of Example"},
+    {"name": "branch", "value": "Sample Central", "evidence_quote": "Branch: Sample Central"},
+    {"name": "account_number", "value": "123456789012", "evidence_quote": "Account Number: 123456789012"},
+    {"name": "routing_code", "value": "SYNTH0001234", "evidence_quote": "IFSC: SYNTH0001234"},
+    {"name": "currency", "value": "INR", "evidence_quote": "Currency: INR"},
+    {"name": "document_date", "value": "15 February 2024", "evidence_quote": "Document Date: 15 February 2024"}
+  ],
+  "line_items": [],
+  "uncertainties": []
+}

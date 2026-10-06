@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     supabase_url: str | None = None
     supabase_service_key: str | None = None
     log_level: str = "INFO"
+    low_confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
 
 
 @lru_cache(maxsize=1)

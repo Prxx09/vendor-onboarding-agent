@@ -70,8 +70,23 @@ class SupabaseRepository(OnboardingRepository):
     def add_document(self, document: Document) -> Document:
         return self._insert("documents", document, Document)
 
+    def get_document(self, document_id: str) -> Document | None:
+        return self._one("documents", Document, "id", document_id)
+
     def list_documents(self, request_id: str) -> list[Document]:
         return self._list("documents", Document, request_id)
+
+    def update_document_text(
+        self, document_id: str, text_content: str, text_quality: dict
+    ) -> Document:
+        response = (
+            self.client.table("documents")
+            .update({"text_content": text_content, "text_quality": text_quality})
+            .eq("id", document_id)
+            .select("*")
+            .execute()
+        )
+        return self._parse_one(response.data, Document)
 
     def save_extracted_fields(
         self, request_id: str, document_id: str, fields: list[ExtractedFieldRecord]

@@ -1,0 +1,14 @@
+{
+  "document_type": "BUSINESS_REGISTRATION",
+  "fields": [
+    {"name": "legal_name", "value": "Aster & Pine Demo Supplies Ltd", "evidence_quote": "Legal Name: Aster & Pine Demo Supplies Ltd"},
+    {"name": "registration_number", "value": "DEMO-CIN-00071", "evidence_quote": "Registration Number: DEMO-CIN-00071"},
+    {"name": "company_type", "value": "Private Limited Company", "evidence_quote": "Company Type: Private Limited Company"},
+    {"name": "address", "value": "14 Fictional Grove, Sample City", "evidence_quote": "Registered Address: 14 Fictional Grove, Sample City"},
+    {"name": "issue_date", "value": "12 March 2023", "evidence_quote": "Issue Date: 12 March 2023"},
+    {"name": "expiry_date", "value": "12 March 2033", "evidence_quote": "Expiry Date: 12 March 2033"},
+    {"name": "issuing_authority", "value": "Synthetic Registry Office", "evidence_quote": "Issuing Authority: Synthetic Registry Office"}
+  ],
+  "line_items": [],
+  "uncertainties": []
+}

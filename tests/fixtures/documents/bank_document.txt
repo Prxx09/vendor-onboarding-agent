@@ -1,0 +1,8 @@
+FICTIONAL BANK ACCOUNT CONFIRMATION
+Account Holder Name: Aster & Pine Demo Supplies Ltd
+Bank Name: Imaginary Bank of Example
+Branch: Sample Central
+Account Number: 123456789012
+IFSC: SYNTH0001234
+Currency: INR
+Document Date: 15 February 2024

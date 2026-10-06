@@ -1,0 +1,12 @@
+{
+  "document_type": "TAX_CERTIFICATE",
+  "fields": [
+    {"name": "legal_name", "value": "Blue Lantern Mock Services LLC", "evidence_quote": "Legal Name: Blue Lantern Mock Services LLC"},
+    {"name": "tax_id", "value": "DEMO-TAX-88421", "evidence_quote": "Tax ID: DEMO-TAX-88421"},
+    {"name": "address", "value": "28 Sample Road, Exampleton", "evidence_quote": "Registered Address: 28 Sample Road, Exampleton"},
+    {"name": "tax_status", "value": "Active", "evidence_quote": "Tax Status: Active"},
+    {"name": "effective_date", "value": "15 January 2024", "evidence_quote": "Effective Date: 2024-01-15"}
+  ],
+  "line_items": [],
+  "uncertainties": []
+}

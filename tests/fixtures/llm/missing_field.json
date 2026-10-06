@@ -1,0 +1,12 @@
+{
+  "document_type": "TAX_CERTIFICATE",
+  "fields": [
+    {"name": "legal_name", "value": "Placeholder Orchard Training Co", "evidence_quote": "Legal Name: Placeholder Orchard Training Co"},
+    {"name": "tax_id", "value": null, "evidence_quote": null},
+    {"name": "address", "value": "99 Example Avenue, Demo Borough", "evidence_quote": "Registered Address: 99 Example Avenue, Demo Borough"},
+    {"name": "tax_status", "value": "Pending", "evidence_quote": "Tax Status: Pending"},
+    {"name": "effective_date", "value": "2025-04-01", "evidence_quote": "Effective Date: 2025-04-01"}
+  ],
+  "line_items": [],
+  "uncertainties": ["The tax identifier is absent from this document."]
+}

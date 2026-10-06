@@ -78,6 +78,19 @@ class InMemoryRepository(OnboardingRepository):
         self.documents[document.id] = deepcopy(document)
         return deepcopy(document)
 
+    def get_document(self, document_id: str) -> Document | None:
+        return deepcopy(self.documents.get(document_id))
+
+    def update_document_text(
+        self, document_id: str, text_content: str, text_quality: dict
+    ) -> Document:
+        current = self._required(self.documents, document_id, "document")
+        updated = current.model_copy(
+            update={"text_content": text_content, "text_quality": deepcopy(text_quality)}
+        )
+        self.documents[document_id] = updated
+        return deepcopy(updated)
+
     def list_documents(self, request_id: str) -> list[Document]:
         return self._for_request(self.documents, request_id)
 
