@@ -67,11 +67,11 @@ DEMO_CASES: list[dict[str, Any]] = [
             "contact_email": "ops@northstarfacility.example",
         },
         "checks": [
-            {"name": "Document completeness", "score": 74, "result": "Review", "detail": "MSME certificate is missing."},
+            {"name": "Document completeness", "score": 60, "result": "Review", "detail": "MSME certificate is missing."},
             {"name": "Tax ID verification", "score": 88, "result": "Pass", "detail": "GSTIN format validated."},
-            {"name": "Bank verification", "score": 79, "result": "Review", "detail": "Cancelled cheque image quality is low."},
+            {"name": "Bank verification", "score": 61, "result": "Review", "detail": "Cancelled cheque image quality is low."},
             {"name": "Sanctions screening", "score": 96, "result": "Pass", "detail": "No match found."},
-            {"name": "Compliance questionnaire", "score": 64, "result": "Review", "detail": "One safety declaration requires confirmation."},
+            {"name": "Compliance questionnaire", "score": 50, "result": "Review", "detail": "One safety declaration requires confirmation."},
         ],
     },
     {
@@ -100,7 +100,7 @@ DEMO_CASES: list[dict[str, Any]] = [
             {"name": "Tax ID verification", "score": 90, "result": "Pass", "detail": "GSTIN validated."},
             {"name": "Bank verification", "score": 86, "result": "Pass", "detail": "Bank evidence accepted."},
             {"name": "Sanctions screening", "score": 99, "result": "Pass", "detail": "No match found."},
-            {"name": "Compliance questionnaire", "score": 78, "result": "Review", "detail": "Security policy acknowledgement is pending."},
+            {"name": "Compliance questionnaire", "score": 78, "result": "Pass", "detail": "Security policy acknowledgement accepted."},
         ],
     },
     {
@@ -125,11 +125,11 @@ DEMO_CASES: list[dict[str, Any]] = [
             "contact_email": "billing@metrooffice.example",
         },
         "checks": [
-            {"name": "Document completeness", "score": 58, "result": "Fail", "detail": "Registration proof is unreadable."},
-            {"name": "Tax ID verification", "score": 49, "result": "Fail", "detail": "Tax ID failed checksum-style validation."},
-            {"name": "Bank verification", "score": 62, "result": "Review", "detail": "Bank document name mismatch."},
-            {"name": "Sanctions screening", "score": 91, "result": "Pass", "detail": "No sanctions match found."},
-            {"name": "Compliance questionnaire", "score": 38, "result": "Fail", "detail": "Mandatory declarations missing."},
+            {"name": "Document completeness", "score": 48, "result": "Fail", "detail": "Registration proof is unreadable."},
+            {"name": "Tax ID verification", "score": 43, "result": "Fail", "detail": "Tax ID failed checksum-style validation."},
+            {"name": "Bank verification", "score": 54, "result": "Review", "detail": "Bank document name mismatch."},
+            {"name": "Sanctions screening", "score": 80, "result": "Pass", "detail": "No sanctions match found."},
+            {"name": "Compliance questionnaire", "score": 35, "result": "Fail", "detail": "Mandatory declarations missing."},
         ],
     },
 ]
