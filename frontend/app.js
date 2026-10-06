@@ -6,6 +6,7 @@ const state = {
   documentName: "",
   extracted: false,
   caseDetailTab: "overview",
+  openAuditCases: new Set(),
 };
 
 const fallbackCases = [
@@ -356,22 +357,50 @@ function renderAudit() {
   populateAuditTypes();
   const query = qs("#auditSearch").value.trim().toLowerCase();
   const type = qs("#auditTypeFilter").value;
-  const events = state.audit.filter((event) => {
-    const haystack = `${event.case_id} ${event.actor} ${event.event_type} ${event.message}`.toLowerCase();
-    return (!query || haystack.includes(query)) && (type === "ALL" || event.event_type === type);
-  });
+  const groups = new Map();
+  for (const event of state.audit) {
+    if (!groups.has(event.case_id)) groups.set(event.case_id, []);
+    groups.get(event.case_id).push(event);
+  }
+  const cases = [...groups.entries()].filter(([caseId, history]) => {
+    const matchesType = type === "ALL" || history.some((event) => event.event_type === type);
+    const matchesQuery = !query || history.some((event) =>
+      `${event.case_id} ${event.actor} ${event.event_type} ${statusLabel(event.event_type)} ${event.message}`.toLowerCase().includes(query)
+    ) || state.cases.some((item) => item.id === caseId &&
+      `${item.vendor_name} ${item.status}`.toLowerCase().includes(query));
+    return matchesType && matchesQuery;
+  }).sort((a, b) => Math.max(...b[1].map((event) => Date.parse(event.timestamp) || 0)) -
+                       Math.max(...a[1].map((event) => Date.parse(event.timestamp) || 0)));
   const timeline = qs("#auditTimeline");
-  if (!events.length) {
-    timeline.innerHTML = `<div class="table-empty">No audit events match the selected filters.</div>`;
+  if (!cases.length) {
+    timeline.innerHTML = `<div class="table-empty">No cases match the selected audit filters.</div>`;
     return;
   }
-  timeline.innerHTML = events.map((event) => `
-    <article class="audit-event">
-      <div class="audit-event-main"><strong>${escapeHtml(statusLabel(event.event_type))} · ${escapeHtml(event.case_id)}</strong><p title="${escapeHtml(event.message)}">${escapeHtml(event.message)}</p></div>
-      <div class="audit-meta"><strong>${escapeHtml(event.actor)}</strong></div>
-      <time class="audit-meta" datetime="${escapeHtml(event.timestamp)}">${escapeHtml(formatDate(event.timestamp, true))}</time>
-    </article>
-  `).join("");
+  timeline.innerHTML = cases.map(([caseId, history]) => {
+    const item = state.cases.find((candidate) => candidate.id === caseId);
+    const ordered = history.slice().sort((a, b) => (Date.parse(a.timestamp) || 0) - (Date.parse(b.timestamp) || 0));
+    const latest = ordered[ordered.length - 1];
+    return `
+      <details class="audit-case" data-audit-case="${escapeHtml(caseId)}" ${state.openAuditCases.has(caseId) ? "open" : ""}>
+        <summary class="audit-case-summary">
+          <span class="audit-case-identity"><strong>${escapeHtml(caseId)}</strong><span>${escapeHtml(item?.vendor_name || "Vendor case")}</span></span>
+          <span class="audit-case-status">${item ? statusBadge(item.status) : escapeHtml(statusLabel(latest.event_type))}</span>
+          <span class="audit-case-count">${history.length} ${history.length === 1 ? "event" : "events"}</span>
+          <time datetime="${escapeHtml(latest.timestamp)}">${escapeHtml(formatDate(latest.timestamp, true))}</time>
+          <span class="audit-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="audit-case-content">
+          <div class="audit-case-caption">Case journey · oldest to newest</div>
+          <div class="case-timeline">
+            ${ordered.map((event) => `<article>
+              <span class="timeline-dot" aria-hidden="true"></span>
+              <div><div class="timeline-event-top"><strong>${escapeHtml(statusLabel(event.event_type))}</strong><time datetime="${escapeHtml(event.timestamp)}">${escapeHtml(formatDate(event.timestamp, true))}</time></div>
+              <p>${escapeHtml(event.message)}</p><small>${escapeHtml(event.actor)}</small></div>
+            </article>`).join("")}
+          </div>
+        </div>
+      </details>`;
+  }).join("");
 }
 
 function renderExtractionPreview(fields) {
@@ -629,6 +658,12 @@ function bindEvents() {
   qs("#reviewSearch").addEventListener("input", () => renderReviewQueue({ preserveSelection: false }));
   qs("#auditSearch").addEventListener("input", renderAudit);
   qs("#auditTypeFilter").addEventListener("change", renderAudit);
+  qs("#auditTimeline").addEventListener("toggle", (event) => {
+    const group = event.target.closest("details[data-audit-case]");
+    if (!group || event.target !== group) return;
+    if (group.open) state.openAuditCases.add(group.dataset.auditCase);
+    else state.openAuditCases.delete(group.dataset.auditCase);
+  }, true);
   qs("#simulateExtraction").addEventListener("click", simulateExtraction);
   qs("#intakeForm").addEventListener("submit", submitIntake);
   qs("#resetIntake").addEventListener("click", resetIntake);
