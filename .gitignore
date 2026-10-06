@@ -4,5 +4,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.pytest-temp/
+pytest-cache-files-*/
 .ruff_cache/
 data/uploads/

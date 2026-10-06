@@ -15,10 +15,15 @@ dev = ["pytest>=8.0", "ruff>=0.5"]
 [tool.setuptools.packages.find]
 include = ["app*"]
 
+[tool.setuptools.package-data]
+"app.prompts" = ["*.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: requires a configured Supabase project"]
+addopts = "-p no:tmpdir -p no:cacheprovider"
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-exclude = [".venv", "pip-ephem-wheel-cache-*"]
+exclude = [".venv", "pip-ephem-wheel-cache-*", ".pytest-temp", "pytest-cache-files-*"]
