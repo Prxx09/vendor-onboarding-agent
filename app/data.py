@@ -179,6 +179,106 @@ AUDIT_EVENTS: list[dict[str, Any]] = [
 ]
 
 
+BASELINE_CASE_EVENTS: list[dict[str, Any]] = [
+    {
+        "id": "AUD-0006",
+        "case_id": "VO-1001",
+        "actor": "System",
+        "event_type": "INTAKE_SUBMITTED",
+        "message": "Initial vendor onboarding request submitted by Procurement Desk.",
+        "timestamp": "2026-10-06T04:10:00+00:00",
+    },
+    {
+        "id": "AUD-0007",
+        "case_id": "VO-1002",
+        "actor": "System",
+        "event_type": "INTAKE_SUBMITTED",
+        "message": "Initial vendor onboarding request submitted by Admin Team.",
+        "timestamp": "2026-10-06T05:25:00+00:00",
+    },
+    {
+        "id": "AUD-0008",
+        "case_id": "VO-1002",
+        "actor": "Extraction Agent",
+        "event_type": "FIELDS_EXTRACTED",
+        "message": "Legal, tax, bank, address, and contact fields auto-populated.",
+        "timestamp": "2026-10-06T05:25:28+00:00",
+    },
+    {
+        "id": "AUD-0009",
+        "case_id": "VO-1002",
+        "actor": "Validation Agent",
+        "event_type": "VALIDATION_COMPLETED",
+        "message": "Confidence score 71 calculated against threshold 82.",
+        "timestamp": "2026-10-06T05:25:44+00:00",
+    },
+    {
+        "id": "AUD-0010",
+        "case_id": "VO-1003",
+        "actor": "System",
+        "event_type": "INTAKE_SUBMITTED",
+        "message": "Initial vendor onboarding request submitted by Technology Team.",
+        "timestamp": "2026-10-06T06:05:00+00:00",
+    },
+    {
+        "id": "AUD-0011",
+        "case_id": "VO-1003",
+        "actor": "Extraction Agent",
+        "event_type": "FIELDS_EXTRACTED",
+        "message": "Legal, tax, bank, address, and contact fields auto-populated.",
+        "timestamp": "2026-10-06T06:05:28+00:00",
+    },
+    {
+        "id": "AUD-0012",
+        "case_id": "VO-1003",
+        "actor": "Validation Agent",
+        "event_type": "VALIDATION_COMPLETED",
+        "message": "Confidence score 89 met threshold 82.",
+        "timestamp": "2026-10-06T06:05:44+00:00",
+    },
+    {
+        "id": "AUD-0013",
+        "case_id": "VO-1003",
+        "actor": "Approval Engine",
+        "event_type": "AUTO_APPROVED",
+        "message": "Vendor auto-approved because all critical checks passed.",
+        "timestamp": "2026-10-06T06:05:48+00:00",
+    },
+    {
+        "id": "AUD-0014",
+        "case_id": "VO-1004",
+        "actor": "System",
+        "event_type": "INTAKE_SUBMITTED",
+        "message": "Initial vendor onboarding request submitted by Workplace Team.",
+        "timestamp": "2026-10-06T06:40:00+00:00",
+    },
+    {
+        "id": "AUD-0015",
+        "case_id": "VO-1004",
+        "actor": "Extraction Agent",
+        "event_type": "FIELDS_EXTRACTED",
+        "message": "Legal, tax, bank, address, and contact fields auto-populated.",
+        "timestamp": "2026-10-06T06:40:28+00:00",
+    },
+    {
+        "id": "AUD-0016",
+        "case_id": "VO-1004",
+        "actor": "Validation Agent",
+        "event_type": "VALIDATION_COMPLETED",
+        "message": "Confidence score 52 calculated against threshold 82. Critical checks failed.",
+        "timestamp": "2026-10-06T06:40:44+00:00",
+    },
+    {
+        "id": "AUD-0017",
+        "case_id": "VO-1004",
+        "actor": "Approval Engine",
+        "event_type": "REJECTED",
+        "message": "Case rejected because confidence was below threshold and critical checks failed.",
+        "timestamp": "2026-10-06T06:40:48+00:00",
+    },
+]
+
+
 def list_cases() -> list[dict[str, Any]]:
     cases = deepcopy(DEMO_CASES)
     return sorted(cases, key=lambda item: item["submitted_at"], reverse=True)
@@ -192,7 +292,7 @@ def find_case(case_id: str) -> dict[str, Any] | None:
 
 
 def list_audit(case_id: str | None = None) -> list[dict[str, Any]]:
-    events = deepcopy(AUDIT_EVENTS)
+    events = deepcopy(AUDIT_EVENTS + BASELINE_CASE_EVENTS)
     if case_id:
         events = [event for event in events if event["case_id"] == case_id]
     return sorted(events, key=lambda item: item["timestamp"], reverse=True)
@@ -200,7 +300,7 @@ def list_audit(case_id: str | None = None) -> list[dict[str, Any]]:
 
 def add_audit(case_id: str, actor: str, event_type: str, message: str) -> dict[str, Any]:
     event = {
-        "id": f"AUD-{len(AUDIT_EVENTS) + 1:04d}",
+        "id": f"AUD-{len(AUDIT_EVENTS) + len(BASELINE_CASE_EVENTS) + 1:04d}",
         "case_id": case_id,
         "actor": actor,
         "event_type": event_type,

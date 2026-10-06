@@ -5,6 +5,7 @@ const state = {
   threshold: 82,
   documentName: "",
   extracted: false,
+  caseDetailTab: "overview",
 };
 
 const fallbackCases = [
@@ -225,8 +226,10 @@ function renderReviewQueue({ preserveSelection = true } = {}) {
     return;
   }
 
-  if (!preserveSelection || !state.selectedCase || !reviewCases.some((item) => item.id === state.selectedCase.id)) {
+  const selectedStillExists = state.selectedCase && state.cases.some((item) => item.id === state.selectedCase.id);
+  if (!preserveSelection || !selectedStillExists) {
     state.selectedCase = reviewCases[0];
+    state.caseDetailTab = "overview";
   }
 
   list.innerHTML = reviewCases.map((item) => `
@@ -248,12 +251,26 @@ function renderCaseDetail(item) {
   }
 
   const belowThreshold = item.confidence < state.threshold;
+  const missingChecks = item.checks.filter((check) => ["Review", "Fail"].includes(check.result));
+  const history = state.audit.filter((event) => event.case_id === item.id);
+  const criticalFailures = item.checks.filter((check) => check.result === "Fail").map((check) => check.name);
+  const decisionReason = getDecisionReason(item, criticalFailures);
+  const activeTab = ["overview", "scorecard", "history"].includes(state.caseDetailTab) ? state.caseDetailTab : "overview";
   detail.innerHTML = `
     <div class="case-detail">
       <div class="detail-header">
         <div><span class="case-id">${escapeHtml(item.id)}</span><h2>${escapeHtml(item.vendor_name)}</h2><p>${escapeHtml(item.document)}</p></div>
         ${statusBadge(item.status)}
       </div>
+      <div class="case-tabs" role="tablist" aria-label="${escapeHtml(item.id)} details">
+        <button class="case-tab ${activeTab === "overview" ? "active" : ""}" data-case-tab="overview" role="tab" aria-selected="${activeTab === "overview"}">Overview</button>
+        <button class="case-tab ${activeTab === "scorecard" ? "active" : ""}" data-case-tab="scorecard" role="tab" aria-selected="${activeTab === "scorecard"}">Scorecard <span>${item.checks.length}</span></button>
+        <button class="case-tab ${activeTab === "history" ? "active" : ""}" data-case-tab="history" role="tab" aria-selected="${activeTab === "history"}">History <span>${history.length}</span></button>
+      </div>
+      ${activeTab === "overview" ? renderCaseOverview(item, missingChecks, decisionReason) : ""}
+      ${activeTab === "scorecard" ? renderCaseScorecard(item) : ""}
+      ${activeTab === "history" ? renderCaseHistory(item, history) : ""}
+      ${activeTab === "overview" ? `
       <div class="detail-summary">
         <div><span>Category</span><strong>${escapeHtml(item.category)}</strong></div>
         <div><span>Risk level</span><strong>${escapeHtml(item.risk_level)}</strong></div>
@@ -286,8 +303,45 @@ function renderCaseDetail(item) {
           <button class="primary-btn" data-decision="APPROVED" type="button">Approve vendor</button>
         </div>
       </section>
+      ` : ""}
     </div>
   `;
+}
+
+function getDecisionReason(item, criticalFailures = []) {
+  const failedText = criticalFailures.length ? ` Critical checks failed: ${criticalFailures.join(", ")}.` : "";
+  if (item.status === "AUTO_APPROVED") return `Confidence score ${item.confidence} meets the ${state.threshold}% threshold and all critical checks passed.`;
+  if (item.status === "APPROVED") return `Reviewer approved the vendor after reviewing the evidence. Confidence score was ${item.confidence}% against a ${state.threshold}% threshold.`;
+  if (item.status === "REJECTED") return `Confidence score ${item.confidence}% is below the ${state.threshold}% threshold.${failedText}`;
+  if (item.status === "NEEDS_INFO") return "The reviewer requested additional information before a final approval decision.";
+  return `Confidence score ${item.confidence}% is below the ${state.threshold}% threshold, so the case was routed to human review.${failedText}`;
+}
+
+function renderCaseOverview(item, missingChecks, decisionReason) {
+  return `
+    <div class="decision-reason ${item.status === "AUTO_APPROVED" || item.status === "APPROVED" ? "positive" : "attention"}">
+      <div class="reason-icon" aria-hidden="true">${item.status === "AUTO_APPROVED" || item.status === "APPROVED" ? "✓" : "!"}</div>
+      <div><span>Decision rationale</span><strong>${escapeHtml(statusLabel(item.status))}</strong><p>${escapeHtml(decisionReason)}</p></div>
+    </div>
+    ${missingChecks.length ? `<div class="missing-info"><div class="missing-icon" aria-hidden="true">!</div><div><strong>Missing or unresolved information</strong><p>${missingChecks.map((check) => `<span>${escapeHtml(check.name)}: ${escapeHtml(check.detail)}</span>`).join("")}</p></div></div>` : `<div class="complete-info"><span aria-hidden="true">✓</span><div><strong>All validation sections resolved</strong><p>No missing information was flagged for this case.</p></div></div>`}
+    <div class="score-summary"><div><span>Overall confidence</span><strong>${Number(item.confidence)}%</strong></div><div><span>Approval threshold</span><strong>${state.threshold}%</strong></div><div><span>Sections reviewed</span><strong>${item.checks.length}</strong></div></div>
+  `;
+}
+
+function renderCaseScorecard(item) {
+  return `
+    <section class="scorecard-section"><div class="scorecard-heading"><div><h3>Validation scorecard</h3><p>Each section contributes to the final confidence score.</p></div><strong>${Number(item.confidence)}% overall</strong></div>
+      <div class="scorecard-grid">${item.checks.map((check) => {
+        const positive = check.result === "Pass";
+        return `<article class="score-card ${positive ? "pass" : "fail"}"><div class="score-card-top"><span>${escapeHtml(check.name)}</span>${statusBadge(check.result)}</div><div class="score-number">${Number(check.score)}<small>/100</small></div><div class="score-line"><span style="width:${Number(check.score)}%"></span></div><p>${escapeHtml(check.detail)}</p></article>`;
+      }).join("")}</div>
+    </section>
+  `;
+}
+
+function renderCaseHistory(item, history) {
+  if (!history.length) return `<div class="case-history-empty">No case-specific audit events are available yet.</div>`;
+  return `<section class="case-history"><div class="scorecard-heading"><div><h3>Case history</h3><p>Every event is linked to ${escapeHtml(item.id)} and shown in order.</p></div><strong>${history.length} events</strong></div><div class="case-timeline">${history.slice().reverse().map((event) => `<article><span class="timeline-dot" aria-hidden="true"></span><div><div class="timeline-event-top"><strong>${escapeHtml(statusLabel(event.event_type))}</strong><time datetime="${escapeHtml(event.timestamp)}">${escapeHtml(formatDate(event.timestamp, true))}</time></div><p>${escapeHtml(event.message)}</p><small>${escapeHtml(event.actor)}</small></div></article>`).join("")}</div></section>`;
 }
 
 function populateAuditTypes() {
@@ -521,6 +575,7 @@ async function openCase(caseId) {
   } catch {
     state.selectedCase = state.cases.find((candidate) => candidate.id === caseId) || null;
   }
+  state.caseDetailTab = "overview";
   switchView("review");
   renderReviewQueue();
 }
@@ -589,6 +644,11 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const openButton = event.target.closest("[data-open-case]");
     if (openButton) openCase(openButton.dataset.openCase);
+    const caseTab = event.target.closest("[data-case-tab]");
+    if (caseTab && state.selectedCase) {
+      state.caseDetailTab = caseTab.dataset.caseTab;
+      renderCaseDetail(state.selectedCase);
+    }
     const decisionButton = event.target.closest("[data-decision]");
     if (decisionButton) submitDecision(decisionButton.dataset.decision, decisionButton);
   });
