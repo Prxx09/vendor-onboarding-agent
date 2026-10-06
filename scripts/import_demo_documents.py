@@ -23,12 +23,24 @@ def main() -> None:
     with ZipFile(args.archive) as archive:
         for member in archive.infolist():
             parts = PurePosixPath(member.filename).parts
-            if member.is_dir() or len(parts) != 5 or parts[1] != "cases" or parts[3] != "documents":
+            if member.is_dir():
                 continue
-            key, filename = parts[2], parts[4]
-            case = storage.find_case("SD-" + key)
+            if len(parts) == 5 and parts[1] == "cases" and parts[3] == "documents":
+                key, filename = parts[2], parts[4]
+                case_id = "SD-" + key
+            elif len(parts) == 3 and parts[0] == "showcased_cases" and parts[2] not in {
+                    "submitted_form.json", "expected_result.json"}:
+                key, filename = parts[1], parts[2]
+                case_id = key
+            else:
+                continue
+            case = storage.find_case(case_id)
             if case is None:
                 print(f"Skip {key}: no matching case in Supabase")
+                skipped += 1
+                continue
+            if not any(doc["name"] == filename for doc in case["documents"]):
+                print(f"Skip {key}/{filename}: no matching document record")
                 skipped += 1
                 continue
             if any(doc["name"] == filename and doc["available"] for doc in case["documents"]):
