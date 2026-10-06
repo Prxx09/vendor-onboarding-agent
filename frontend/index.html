@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vendor Onboarding Agent</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">VO</span>
+          <div>
+            <strong>Vendor Onboarding</strong>
+            <small>Agentic approval portal</small>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" data-view="intake">New Intake</button>
+          <button class="nav-item" data-view="review">Review Queue</button>
+          <button class="nav-item" data-view="audit">Audit Trail</button>
+        </nav>
+        <div class="threshold-card">
+          <span>Auto-approval threshold</span>
+          <strong id="thresholdValue">82%</strong>
+          <small>Below threshold routes to human review.</small>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Client POC</p>
+            <h1>Document-first vendor onboarding</h1>
+          </div>
+          <div class="topbar-actions">
+            <span class="api-status" id="apiStatus">Connecting...</span>
+            <button class="primary-btn" data-view-target="intake">Start intake</button>
+          </div>
+        </header>
+
+        <section id="dashboard" class="view active">
+          <div class="metrics-grid">
+            <article class="metric">
+              <span>Total cases</span>
+              <strong id="metricTotal">0</strong>
+            </article>
+            <article class="metric">
+              <span>Auto-approved</span>
+              <strong id="metricApproved">0</strong>
+            </article>
+            <article class="metric">
+              <span>Human review</span>
+              <strong id="metricReview">0</strong>
+            </article>
+            <article class="metric">
+              <span>Average confidence</span>
+              <strong id="metricConfidence">0%</strong>
+            </article>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel wide">
+              <div class="panel-header">
+                <div>
+                  <h2>Recent onboarding cases</h2>
+                  <p>Track each vendor from upload to final decision.</p>
+                </div>
+                <button class="ghost-btn" id="refreshCases">Refresh</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Case</th>
+                      <th>Vendor</th>
+                      <th>Category</th>
+                      <th>Confidence</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="caseTable"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <h2>Process controls</h2>
+              <div class="step-list">
+                <div><span>1</span><p>Upload vendor document first.</p></div>
+                <div><span>2</span><p>Auto-populate editable intake form.</p></div>
+                <div><span>3</span><p>Run validations after submit.</p></div>
+                <div><span>4</span><p>Approve automatically or route exceptions.</p></div>
+                <div><span>5</span><p>Log every action with timestamps.</p></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="intake" class="view">
+          <div class="content-grid">
+            <section class="panel wide">
+              <div class="panel-header">
+                <div>
+                  <h2>New vendor intake</h2>
+                  <p>Upload a document first. The form remains editable before final submission.</p>
+                </div>
+                <span class="pill">Document-first rule</span>
+              </div>
+
+              <div class="upload-zone" id="uploadZone">
+                <input id="documentInput" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.zip">
+                <div>
+                  <strong>Drop or choose vendor document</strong>
+                  <p id="uploadHint">Demo extraction will populate the fields below.</p>
+                </div>
+                <button class="secondary-btn" id="simulateExtraction" type="button">Run extraction</button>
+              </div>
+
+              <form id="intakeForm" class="form-grid">
+                <label>
+                  Legal name
+                  <input name="legal_name" required placeholder="Vendor legal entity">
+                </label>
+                <label>
+                  Category
+                  <select name="category">
+                    <option>Manufacturing</option>
+                    <option>IT Services</option>
+                    <option>Facilities</option>
+                    <option>Office Supplies</option>
+                    <option>General</option>
+                  </select>
+                </label>
+                <label>
+                  Tax ID / GSTIN
+                  <input name="tax_id" required placeholder="27ABCDE1234F1Z5">
+                </label>
+                <label>
+                  PAN
+                  <input name="pan" required placeholder="ABCDE1234F">
+                </label>
+                <label>
+                  Bank account
+                  <input name="bank_account" required placeholder="Masked account number">
+                </label>
+                <label>
+                  IFSC
+                  <input name="ifsc" required placeholder="HDFC0001342">
+                </label>
+                <label class="span-2">
+                  Registered address
+                  <textarea name="registered_address" required placeholder="Address extracted from document"></textarea>
+                </label>
+                <label>
+                  Contact email
+                  <input name="contact_email" required type="email" placeholder="accounts@vendor.com">
+                </label>
+                <label>
+                  Region
+                  <input name="region" value="India">
+                </label>
+                <label class="checkbox span-2">
+                  <input name="compliance_confirmed" type="checkbox" checked>
+                  Vendor declarations and compliance questionnaire are accepted
+                </label>
+                <div class="form-actions span-2">
+                  <button class="primary-btn" type="submit">Submit and run checks</button>
+                  <button class="ghost-btn" type="button" id="resetIntake">Reset</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <h2>Live extraction preview</h2>
+              <div id="extractionPreview" class="empty-state">Upload a document to see extracted fields.</div>
+            </section>
+          </div>
+        </section>
+
+        <section id="review" class="view">
+          <div class="content-grid">
+            <section class="panel wide">
+              <div class="panel-header">
+                <div>
+                  <h2>Review queue</h2>
+                  <p>Cases below the confidence threshold or with failed critical checks.</p>
+                </div>
+              </div>
+              <div id="reviewList" class="case-list"></div>
+            </section>
+
+            <section class="panel">
+              <h2>Selected case</h2>
+              <div id="caseDetail" class="empty-state">Select a case to inspect validation evidence.</div>
+            </section>
+          </div>
+        </section>
+
+        <section id="audit" class="view">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Traceable audit trail</h2>
+                <p>Every document, validation, routing, and review action is timestamped.</p>
+              </div>
+              <button class="ghost-btn" id="refreshAudit">Refresh</button>
+            </div>
+            <div id="auditTimeline" class="timeline"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status"></div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+
