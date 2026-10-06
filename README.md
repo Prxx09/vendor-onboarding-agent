@@ -82,3 +82,14 @@ Copy `.env.example` to `.env` and add the server-side Supabase key before enabli
 - `GET /api/storage/status`
 
 The **Submitted form & documents** tab opens when a case is selected. It shows the stored form values and each recorded document, with a clear unavailable state for legacy metadata without source bytes.
+
+## Synthetic test pack
+
+The original ten scenarios plus four generated showcase case documents are described in [docs/demo_test_coverage.md](docs/demo_test_coverage.md). The supplied complete ZIP contains 14 cases and 50 top-level source documents. The four showcase source files can be regenerated with:
+
+```powershell
+python -m pip install -r requirements-demo.txt
+python -m scripts.build_showcase_fixtures .\\showcased_cases
+```
+
+The importer accepts the complete ZIP, including the showcase files. It requires a server-side Supabase key in `.env`. Existing records without file bytes remain marked as unavailable until the import completes. The current extractor is filename based, so the pack does not certify content extraction or all reference checks.
