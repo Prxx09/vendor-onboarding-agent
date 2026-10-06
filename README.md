@@ -65,9 +65,9 @@ curl http://127.0.0.1:8000/api/storage/status
 
 The hosted project is `vendor-onboarding-agent` in `ap-south-1` with project ref `uhralsrggcpuwdbocsie`. The migrations in `supabase/migrations/` create the backend schema and seed the synthetic demo pack. They include RLS policies that allow read-only access to synthetic demo data; workflow writes should go through the FastAPI service using a server-side key.
 
-The current runtime uses `local-memory` storage so frontend and backend can run together immediately. The backend workflow logic is separated in `app/workflow.py`, which keeps scoring/routing independent from storage. That makes the next migration step straightforward: replace the local store calls with Supabase reads/writes while keeping the same frontend API contract.
+With `SUPABASE_URL` and a server-side `SUPABASE_SERVICE_ROLE_KEY` in `.env`, the API reads the synthetic cases from Supabase and stores newly submitted forms, validation checks, and uploaded documents in the private `vendor-documents` bucket. Without these values, the four original showcase cases and new intakes continue in local memory; local files disappear when the server restarts. The original four showcase records have vendor field snapshots and document names but no source file bytes, so the UI labels those documents as unavailable instead of offering broken links.
 
-Copy `.env.example` to `.env` and add the server-side Supabase key before enabling hosted writes. Never expose that key in the browser or commit it to Git.
+Copy `.env.example` to `.env` and add the server-side Supabase key before enabling hosted writes. Never expose that key in the browser or commit it to Git. The backend must be protected with application authentication before handling real vendor records; this demo API has no user authorization.\n\nThe supplied 10-scenario ZIP is seeded as Supabase case/document metadata. Their source file bytes are not yet in Storage. To upload them from your copy of the ZIP, run:\n\n```powershell\npython -m scripts.import_demo_documents \"C:\\path\\to\\Vendor_Onboarding_Synthetic_Demo_Data(3).zip\"\n```\n\nThe script matches each document by case and filename, fills existing document records, and skips files already present. The UI then offers an **Open file** action for each stored object. These ten scenarios retain their own recorded statuses and show **Not scored** where no confidence score was calculated; they are separate from the four original showcase cases.
 
 ## API
 
@@ -80,3 +80,5 @@ Copy `.env.example` to `.env` and add the server-side Supabase key before enabli
 - `POST /api/upload/simulate`
 - `GET /api/audit-events`
 - `GET /api/storage/status`
+
+The **Submitted form & documents** tab opens when a case is selected. It shows the stored form values and each recorded document, with a clear unavailable state for legacy metadata without source bytes.
