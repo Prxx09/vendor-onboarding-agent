@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import mimetypes
 import os
 from urllib.error import HTTPError
@@ -115,7 +116,8 @@ def upload_document(case_key: str, name: str, content: bytes, mime_type: str | N
     existing = _rows("case_documents", {"select": "id", "case_id": "eq." + rows[0]["id"],
                                          "file_name": "eq." + safe_name, "storage_path": "is.null", "limit": "1"})
     document = {"case_id": rows[0]["id"], "document_type": "uploaded", "file_name": safe_name,
-                "mime_type": mime, "storage_path": path, "extraction_status": "pending"}
+                "mime_type": mime, "storage_path": path, "file_hash": hashlib.sha256(content).hexdigest(),
+                "extraction_status": "pending"}
     try:
         if existing:
             document.pop("case_id")
