@@ -281,6 +281,15 @@ BASELINE_CASE_EVENTS: list[dict[str, Any]] = [
 
 def list_cases() -> list[dict[str, Any]]:
     cases = deepcopy(DEMO_CASES)
+    for case in cases:
+        case.setdefault("submitted_form", {
+            **case["extracted_fields"], "category": case["category"],
+            "region": case["region"], "submitted_by": case["submitted_by"],
+        })
+        case.setdefault("documents", [{
+            "id": "legacy-document", "name": case["document"],
+            "type": "Source document", "available": False,
+        }])
     return sorted(cases, key=lambda item: item["submitted_at"], reverse=True)
 
 
@@ -315,7 +324,7 @@ def create_case_from_intake(payload: dict[str, Any]) -> dict[str, Any]:
     checks = score_checks(payload)
     decision = route_case(checks, APPROVAL_THRESHOLD)
     case = {
-        "id": f"VO-{1000 + len(DEMO_CASES) + 1}",
+        "id": payload.get("case_id") or f"VO-{1000 + len(DEMO_CASES) + 1}",
         "vendor_name": payload.get("legal_name") or "New Vendor",
         "category": payload.get("category") or "General",
         "region": payload.get("region") or "India",
@@ -336,6 +345,11 @@ def create_case_from_intake(payload: dict[str, Any]) -> dict[str, Any]:
             "contact_email": payload.get("contact_email", ""),
         },
         "checks": checks,
+        "submitted_form": {key: value for key, value in payload.items() if key != "document_name"},
+        "documents": [{
+            "id": "source-document", "name": payload.get("document_name") or "uploaded-vendor-document.pdf",
+            "type": "Source document", "available": False,
+        }],
     }
     DEMO_CASES.insert(0, case)
     add_audit(case["id"], "Portal User", "INTAKE_SUBMITTED", "Vendor intake form submitted after document extraction.")
