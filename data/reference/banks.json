@@ -1,0 +1,7 @@
+{
+  "banks": [
+    {"name": "Synthetic National Bank", "ifsc_prefix": "SYNB", "swift_prefix": "SYNB"},
+    {"name": "Imaginary Bank of Example", "ifsc_prefix": "IMAG", "swift_prefix": "IMAG"},
+    {"name": "Demo Monetary Bank", "ifsc_prefix": "DMMY", "swift_prefix": "DMMY"}
+  ]
+}
