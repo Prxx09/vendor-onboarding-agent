@@ -12,6 +12,14 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-3.8-flash"
 
+    # Local document extraction.
+    OCR_PROVIDER: str = "windows"
+    OCR_LANGUAGE: str | None = None
+    OCR_MAX_PDF_PAGES: int = 20
+    OCR_PDF_RENDER_SCALE: float = 2.0
+    PDF_NATIVE_TEXT_MIN_CHARS: int = 40
+    DOCUMENT_TEXT_MAX_CHARS: int = 30000
+
     VERIFICATION_PROVIDER_MODE: str = "supabase"
 
     COMPANY_REGISTRY_API_URL: str | None = None

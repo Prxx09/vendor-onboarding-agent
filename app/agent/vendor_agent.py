@@ -14,6 +14,7 @@ from app.domain.models import (
 )
 from app.providers.base import VerificationProvider
 from app.repositories.vendor_repository import VendorRepository
+from app.services.document_processor import DocumentProcessor
 from app.services.gemini_extractor import GeminiDocumentExtractor
 
 
@@ -55,10 +56,12 @@ def _parse_date(value: str | None) -> date | None:
 class VendorVerificationAgent:
     def __init__(
         self,
+        document_processor: DocumentProcessor,
         extractor: GeminiDocumentExtractor,
         provider: VerificationProvider,
         repository: VendorRepository,
     ) -> None:
+        self.document_processor = document_processor
         self.extractor = extractor
         self.provider = provider
         self.repository = repository
@@ -116,11 +119,16 @@ class VendorVerificationAgent:
 
     async def _extract_documents(self, state: AgentState) -> dict:
         async def extract_one(item: dict):
-            return await self.extractor.extract(
+            document_text = await self.document_processor.extract_text(
                 filename=item["filename"],
                 mime_type=item["mime_type"],
                 content=item["content"],
             )
+            structured = await self.extractor.extract(
+                filename=item["filename"],
+                raw_text=document_text.text,
+            )
+            return structured, document_text
 
         results = await asyncio.gather(
             *(extract_one(item) for item in state["files"]),
@@ -137,18 +145,21 @@ class VendorVerificationAgent:
                 events.append(
                     AgentEvent(
                         step="document_extraction",
-                        message=f"Extraction failed for {file_item['filename']}.",
+                        message=f"Extraction failed for {file_item['filename']}: {result}",
                     )
                 )
                 continue
 
-            extractions.append(result)
+            structured, document_text = result
+            extractions.append(structured)
             events.append(
                 AgentEvent(
                     step="document_extraction",
                     message=(
-                        f"{result.filename} classified as {result.document_type} "
-                        f"({result.confidence:.0%} confidence)."
+                        f"{structured.filename}: text extracted via "
+                        f"{document_text.method} across {document_text.page_count} page(s); "
+                        f"classified as {structured.document_type} "
+                        f"({structured.confidence:.0%} confidence)."
                     ),
                 )
             )

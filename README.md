@@ -5,41 +5,53 @@ Client-demo MVP for supplier onboarding focused on document understanding and ve
 The prototype intentionally excludes PO creation and procurement approvals. Its core job is:
 
 1. Accept vendor details and required documents.
-2. Use Gemini multimodal extraction to classify documents and extract structured fields.
-3. Verify extracted company, tax, bank, KYC/KYB and sanctions data against preset Supabase registries.
-4. Cross-check the documents against each other.
-5. Return one of three business states: APPROVED, ACTION_REQUIRED, or REVIEW_REQUIRED.
-6. Let a human approve or reject items in the review queue.
+2. Read documents locally using the PDF text layer or Windows built-in OCR.
+3. Send only extracted text to Gemini for document classification and structured field extraction.
+4. Verify extracted company, tax, bank, KYC/KYB and sanctions data against preset Supabase registries.
+5. Cross-check the documents against each other.
+6. Return APPROVED, ACTION_REQUIRED, or REVIEW_REQUIRED.
+7. Let a human approve or reject items in the review queue.
 
-## Workflow
+## Document extraction pipeline
 
 ~~~text
-Upload documents
-      |
-      v
-Gemini extraction
-      |
-      v
-Completeness check
-   /          \
-missing       complete
-  |              |
-ACTION_REQUIRED  v
-             verification tools
-                  |
-                  v
-             cross-document checks
-                  |
-                  v
-               decision
-              /       \
-         APPROVED   REVIEW_REQUIRED
-                         |
-                         v
-                    human review
-                    /          \
-                APPROVED     REJECTED
+PDF / image
+    |
+    +-- PDF page has usable embedded text
+    |       |
+    |       +--> PyMuPDF text extraction
+    |
+    +-- Image or scanned PDF page
+            |
+            +--> Windows.Media.Ocr
+                        |
+                        v
+                   raw text
+                        |
+                        v
+                     Gemini
+             classification + JSON
 ~~~
+
+Gemini does not receive the image/PDF in the default MVP path. It receives the text already extracted locally. This reduces vision usage and makes OCR replaceable independently from the LLM.
+
+For mixed PDFs, the processor works page-by-page: pages with a usable text layer use native text, while scanned pages fall back to Windows OCR.
+
+## Windows OCR requirements
+
+The MVP OCR provider uses the Windows.Media.Ocr WinRT API, so scanned documents/images must be processed on Windows 10/11.
+
+Python WinRT dependencies are installed only on Windows through environment markers in requirements.txt.
+
+Windows also needs an OCR language capability installed. Normally the user's Windows language pack is used. You may optionally set:
+
+~~~env
+OCR_LANGUAGE=en-US
+~~~
+
+If no language is specified, the provider uses the Windows user-profile OCR languages.
+
+For a future Linux/cloud deployment, replace the OCR provider behind app/ocr/base.py; the agent and Gemini structuring layer do not need to change.
 
 ## Required documents for the MVP
 
@@ -49,7 +61,7 @@ ACTION_REQUIRED  v
 
 Other uploaded files are classified but do not block onboarding.
 
-## Architecture
+## Verification architecture
 
 The agent never talks directly to Supabase tables or future official websites.
 
@@ -68,29 +80,38 @@ When official services become available, set VERIFICATION_PROVIDER_MODE=http and
 
 ## Gemini
 
-Gemini is used for document classification and structured extraction. Verification decisions are not delegated entirely to the LLM. Registry lookups, duplicate checks, status rules and cross-document matching are deterministic tools around the model.
+Gemini is used only after local text extraction. It classifies the document and converts OCR/native PDF text into the structured DocumentExtraction schema.
 
-The model is configurable with GEMINI_MODEL. Default: gemini-3.8-flash.
+Registry lookup, duplicate checks, name matching, expiry checks and final routing are deterministic application logic around the LLM.
+
+The model is configurable with GEMINI_MODEL.
 
 ## Setup
 
-1. Create a Python virtual environment.
-2. Install dependencies:
+1. Use Windows 10/11 for the current OCR implementation.
+2. Create a Python virtual environment.
+3. Install dependencies:
 
 ~~~bash
 pip install -r requirements.txt
 ~~~
 
-3. Copy .env.example to .env and add your rotated Supabase service-role key and Gemini API key.
-4. Run sql/schema.sql in Supabase SQL Editor.
-5. Run sql/seed_demo.sql to load synthetic verification records.
-6. Start the API:
+4. Copy .env.example to .env and add your rotated Supabase service-role key and Gemini API key.
+5. Run sql/schema.sql in Supabase SQL Editor.
+6. Run sql/seed_demo.sql to load synthetic verification records.
+7. Start the API:
 
 ~~~bash
 uvicorn app.main:app --reload
 ~~~
 
 API docs: http://127.0.0.1:8000/docs
+
+Run unit tests:
+
+~~~bash
+pytest -q
+~~~
 
 ## Main API
 
