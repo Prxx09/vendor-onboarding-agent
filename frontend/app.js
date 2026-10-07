@@ -4,7 +4,9 @@ const state = {
   selectedCase: null,
   threshold: 82,
   documentName: "",
+  documents: [],
   extracted: false,
+  extractionResult: null,
   caseDetailTab: "overview",
   openAuditCases: new Set(),
 };
@@ -175,7 +177,7 @@ function switchView(viewId) {
 }
 
 function casesNeedingAttention() {
-  return state.cases.filter((item) => !["AUTO_APPROVED", "APPROVED"].includes(item.status));
+  return state.cases.filter((item) => ["HUMAN_REVIEW", "NEEDS_INFO"].includes(item.status));
 }
 
 function renderMetrics() {
@@ -245,7 +247,7 @@ function renderReviewQueue({ preserveSelection = true } = {}) {
   list.innerHTML = reviewCases.map((item) => `
     <button class="queue-case ${state.selectedCase?.id === item.id ? "active" : ""}" data-open-case="${escapeHtml(item.id)}" type="button">
       <div class="queue-case-top"><strong>${escapeHtml(item.vendor_name)}</strong>${statusBadge(item.status)}</div>
-      <div class="queue-case-meta"><span>${escapeHtml(item.id)}</span><span>${escapeHtml(item.risk_level)} risk</span></div>
+      <div class="queue-case-meta"><span>${escapeHtml(item.id)} · ${escapeHtml(item.category)}</span><span class="risk-label ${normalizeStatus(item.risk_level)}">${escapeHtml(item.risk_level)} risk</span></div>
       <div class="queue-case-score"><span class="mini-meter" aria-hidden="true"><span style="width:${formatConfidence(item.confidence)}"></span></span><strong>${formatConfidence(item.confidence)}</strong></div>
     </button>
   `).join("");
@@ -373,8 +375,8 @@ function renderCaseScorecard(item) {
   return `
     <section class="scorecard-section"><div class="scorecard-heading"><div><h3>Validation scorecard</h3><p>Each section contributes to the final confidence score.</p></div><strong>${formatConfidence(item.confidence)} overall</strong></div>
       <div class="scorecard-grid">${item.checks.map((check) => {
-        const positive = check.result === "Pass";
-        return `<article class="score-card ${positive ? "pass" : "fail"}"><div class="score-card-top"><span>${escapeHtml(check.name)}</span>${statusBadge(check.result)}</div><div class="score-number">${Number(check.score)}<small>/100</small></div><div class="score-line"><span style="width:${Number(check.score)}%"></span></div><p>${escapeHtml(check.detail)}</p></article>`;
+        const resultClass = check.result === "Pass" ? "pass" : (check.result === "Review" ? "review" : "fail");
+        return `<article class="score-card ${resultClass}"><div class="score-card-top"><span>${escapeHtml(check.name)}</span>${statusBadge(check.result)}</div><div class="score-number">${Number(check.score)}<small>/100</small></div><div class="score-line"><span style="width:${Number(check.score)}%"></span></div><p>${escapeHtml(check.detail)}</p></article>`;
       }).join("")}</div>
     </section>
   `;
@@ -443,7 +445,7 @@ function renderAudit() {
   }).join("");
 }
 
-function renderExtractionPreview(fields) {
+function renderExtractionPreview(fields, result = null) {
   const preview = qs("#extractionPreview");
   if (!fields) {
     preview.className = "evidence-empty";
@@ -452,8 +454,43 @@ function renderExtractionPreview(fields) {
   }
   preview.className = "evidence-list";
   preview.innerHTML = Object.entries(fields).map(([key, value], index) => `
-    <div class="evidence-row"><div><span>${escapeHtml(key.replaceAll("_", " "))}</span><span class="confidence-tag">${Math.max(86, 97 - index * 2)}% match</span></div><strong>${escapeHtml(value)}</strong></div>
+    <div class="evidence-row"><div><span>${escapeHtml(key.replaceAll("_", " "))}</span><span class="confidence-tag">${Number(result?.field_confidence?.[key] || 0)}% match</span></div><strong>${escapeHtml(value)}</strong><small>Source: ${escapeHtml(result?.field_sources?.[key] || "Manual entry")}</small></div>
   `).join("");
+}
+
+function renderSelectedFiles() {
+  const files = state.documents;
+  qs("#fileSummary").hidden = !files.length;
+  qs("#fileName").textContent = `${files.length} ${files.length === 1 ? "document" : "documents"} selected`;
+  qs("#selectedFileList").innerHTML = files.map((file) => `
+    <div class="selected-file-row"><span class="file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div><strong>${escapeHtml(file.name)}</strong><small>${formatBytes(file.size)}</small></div></div>
+  `).join("");
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  qs("#fileMeta").textContent = files.length ? `${formatBytes(total)} combined · Ready for extraction` : "Ready for extraction";
+}
+
+function renderRequirementCoverage(documents = []) {
+  const found = new Set(documents.flatMap((document) => document.detected_types || [document.document_type]));
+  qsa("[data-requirement]").forEach((item) => {
+    const complete = found.has(item.dataset.requirement);
+    item.classList.toggle("complete", complete);
+    const marker = qs("i", item);
+    marker.textContent = complete ? "✓" : marker.dataset.number || marker.textContent;
+    if (!marker.dataset.number && !complete) marker.dataset.number = marker.textContent;
+  });
+}
+
+function renderExtractionScore(result = null) {
+  const scoreCard = qs("#extractionScore");
+  scoreCard.hidden = !result;
+  if (!result) return;
+  const score = Number(result.extraction_confidence || 0);
+  qs("#extractionScoreValue").textContent = `${score}%`;
+  qs("#extractionScoreBar").style.width = `${meterWidth(score)}%`;
+  const missing = result.missing_fields || [];
+  qs("#extractionScoreMessage").textContent = missing.length
+    ? `${missing.length} field${missing.length === 1 ? "" : "s"} need manual completion before submission.`
+    : "All required fields were found. Verify the values before submission.";
 }
 
 function renderAll() {
@@ -522,20 +559,35 @@ function setIntakeStep(step) {
   });
 }
 
-function handleSelectedFile(file) {
-  if (!file) return false;
-  if (file.size > 10 * 1024 * 1024) {
+function handleSelectedFiles(selected) {
+  const files = [...(selected || [])];
+  if (!files.length) return false;
+  if (files.length > 8) {
     qs("#documentInput").value = "";
-    showAlert("The selected document is larger than 10 MB. Choose a smaller file.");
+    showAlert("A maximum of 8 documents can be processed in one intake.");
     return false;
   }
-  qs("#fileSummary").hidden = false;
-  qs("#fileName").textContent = file.name;
-  qs("#fileMeta").textContent = `${formatBytes(file.size)} · Ready for extraction`;
-  qs("#uploadHint").textContent = "Document selected";
+  const oversized = files.find((file) => file.size > 10 * 1024 * 1024);
+  if (oversized) {
+    qs("#documentInput").value = "";
+    showAlert(`${oversized.name} is larger than 10 MB. Choose a smaller file.`);
+    return false;
+  }
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  if (total > 30 * 1024 * 1024) {
+    qs("#documentInput").value = "";
+    showAlert("The selected documents exceed the 30 MB combined limit.");
+    return false;
+  }
+  state.documents = files;
+  renderSelectedFiles();
+  qs("#uploadHint").textContent = `${files.length} document${files.length === 1 ? "" : "s"} selected`;
   qs("#simulateExtraction").disabled = false;
-  state.documentName = file.name;
+  state.documentName = files[0].name;
   state.extracted = false;
+  state.extractionResult = null;
+  renderExtractionScore(null);
+  renderRequirementCoverage();
   setIntakeStep(0);
   showAlert();
   return true;
@@ -543,40 +595,46 @@ function handleSelectedFile(file) {
 
 function clearDocument() {
   qs("#documentInput").value = "";
-  qs("#fileSummary").hidden = true;
-  qs("#uploadHint").textContent = "or click to browse from your computer";
+  state.documents = [];
+  renderSelectedFiles();
+  qs("#uploadHint").textContent = "or click to select multiple files";
   qs("#simulateExtraction").disabled = true;
   qs("#extractionBadge").textContent = "Manual entry";
   qs("#extractionBadge").classList.remove("complete");
   state.documentName = "";
   state.extracted = false;
+  state.extractionResult = null;
   renderExtractionPreview(null);
+  renderExtractionScore(null);
+  renderRequirementCoverage();
   setIntakeStep(0);
 }
 
 async function simulateExtraction() {
-  const file = qs("#documentInput").files[0];
-  if (!file) {
-    showAlert("Choose a vendor document before running extraction.");
+  if (!state.documents.length) {
+    showAlert("Choose one or more vendor documents before running extraction.");
     return;
   }
   const button = qs("#simulateExtraction");
   const formData = new FormData();
-  formData.append("file", file);
+  state.documents.forEach((file) => formData.append("files", file));
   formData.append("category", qs("#intakeForm").elements.category.value);
   setBusy(button, true, "Extracting");
   showAlert();
   try {
-    const result = await api("/api/upload/simulate", { method: "POST", body: formData });
-    state.documentName = result.document_name;
+    const result = await api("/api/upload/extract", { method: "POST", body: formData });
+    state.documentName = state.documents[0].name;
     state.extracted = true;
+    state.extractionResult = result;
     fillForm(result.extracted_fields, { category: result.category });
-    renderExtractionPreview(result.extracted_fields);
-    qs("#fileMeta").textContent = `${formatBytes(file.size)} · Extraction complete`;
+    renderExtractionPreview(result.extracted_fields, result);
+    renderExtractionScore(result);
+    renderRequirementCoverage(result.documents);
+    qs("#fileMeta").textContent = `${state.documents.length} document${state.documents.length === 1 ? "" : "s"} · Extraction complete`;
     qs("#extractionBadge").textContent = "AI extracted";
     qs("#extractionBadge").classList.add("complete");
     setIntakeStep(1);
-    showToast("Extraction complete. Verify the highlighted details.");
+    showToast(`Extraction complete with ${result.extraction_confidence}% confidence. Verify the highlighted details.`);
   } catch (error) {
     showAlert(`Extraction failed: ${error.message}. You can enter the details manually.`);
   } finally {
@@ -602,7 +660,7 @@ async function submitIntake(event) {
   event.preventDefault();
   const form = event.currentTarget;
   if (!state.documentName) {
-    showAlert("Upload a source document before submitting this intake.");
+    showAlert("Upload at least one vendor document before submitting this intake.");
     qs("#uploadZone").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
@@ -617,6 +675,7 @@ async function submitIntake(event) {
   payload.compliance_confirmed = form.elements.compliance_confirmed.checked;
   payload.document_name = state.documentName;
   payload.submitted_by = "Portal User";
+  payload.extraction_confidence = state.extractionResult?.extraction_confidence ?? null;
   setIntakeStep(2);
   setBusy(button, true, "Running validation");
   showAlert();
@@ -624,7 +683,7 @@ async function submitIntake(event) {
   try {
     const submission = new FormData();
     submission.append("payload", JSON.stringify(payload));
-    submission.append("file", qs("#documentInput").files[0]);
+    state.documents.forEach((file) => submission.append("files", file));
     const created = await api("/api/intake/submit", { method: "POST", body: submission });
     state.cases.unshift(created);
     await loadAudit();
@@ -712,12 +771,17 @@ function bindEvents() {
   qs("#resetIntake").addEventListener("click", resetIntake);
   qs("#removeDocument").addEventListener("click", clearDocument);
   qs("#documentInput").addEventListener("change", (event) => {
-    if (handleSelectedFile(event.target.files[0])) simulateExtraction();
+    if (handleSelectedFiles(event.target.files)) simulateExtraction();
   });
 
   const uploadZone = qs("#uploadZone");
-  ["dragenter", "dragover"].forEach((name) => uploadZone.addEventListener(name, () => uploadZone.classList.add("dragging")));
-  ["dragleave", "drop"].forEach((name) => uploadZone.addEventListener(name, () => uploadZone.classList.remove("dragging")));
+  ["dragenter", "dragover"].forEach((name) => uploadZone.addEventListener(name, (event) => { event.preventDefault(); uploadZone.classList.add("dragging"); }));
+  uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragging"));
+  uploadZone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    uploadZone.classList.remove("dragging");
+    if (handleSelectedFiles(event.dataTransfer.files)) simulateExtraction();
+  });
 
   document.addEventListener("click", (event) => {
     const openButton = event.target.closest("[data-open-case]");

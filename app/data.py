@@ -347,12 +347,16 @@ def create_case_from_intake(payload: dict[str, Any]) -> dict[str, Any]:
         "checks": checks,
         "submitted_form": {key: value for key, value in payload.items() if key != "document_name"},
         "documents": [{
-            "id": "source-document", "name": payload.get("document_name") or "uploaded-vendor-document.pdf",
-            "type": "Source document", "available": False,
-        }],
+            "id": f"source-document-{index + 1}", "name": name,
+            "type": "Source document" if index == 0 else "Supporting document", "available": False,
+        } for index, name in enumerate(payload.get("document_names") or [payload.get("document_name") or "uploaded-vendor-document.pdf"])],
     }
     DEMO_CASES.insert(0, case)
-    add_audit(case["id"], "Portal User", "INTAKE_SUBMITTED", "Vendor intake form submitted after document extraction.")
+    document_count = len(case["documents"])
+    add_audit(case["id"], "Portal User", "DOCUMENTS_UPLOADED", f"{document_count} vendor document{'s' if document_count != 1 else ''} uploaded.")
+    if payload.get("extraction_confidence") is not None:
+        add_audit(case["id"], "Extraction Agent", "FIELDS_EXTRACTED", f"Fields populated with {payload['extraction_confidence']}% extraction confidence.")
+    add_audit(case["id"], "Portal User", "INTAKE_SUBMITTED", "Vendor intake form verified and submitted for validation.")
     add_audit(case["id"], "Validation Agent", "VALIDATION_COMPLETED", f"Confidence score {decision.confidence} calculated against threshold {APPROVAL_THRESHOLD}.")
     add_audit(case["id"], "Approval Engine", decision.status, f"Case status set to {decision.status}.")
     return deepcopy(case)

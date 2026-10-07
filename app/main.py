@@ -22,10 +22,14 @@ from app.data import (
     list_cases,
 )
 from app.workflow import simulate_document_extraction
+from app.extraction import SUPPORTED_EXTENSIONS, extract_documents
 from app import storage
 
 load_dotenv()
-LOCAL_FILES: dict[str, tuple[bytes, str]] = {}
+LOCAL_FILES: dict[tuple[str, str], tuple[bytes, str, str]] = {}
+MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_TOTAL_SIZE = 30 * 1024 * 1024
+MAX_DOCUMENTS = 8
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "frontend"
@@ -56,6 +60,7 @@ class IntakePayload(BaseModel):
     submitted_by: str = "Portal User"
     document_name: str = "uploaded-vendor-document.pdf"
     compliance_confirmed: bool = True
+    extraction_confidence: int | None = None
 
 
 class DecisionPayload(BaseModel):
@@ -84,7 +89,8 @@ def config() -> dict[str, Any]:
         "approval_threshold": APPROVAL_THRESHOLD,
         "workflow": [
             "Upload document",
-            "Auto-populate form",
+            "Extract text and OCR",
+            "Auto-populate form with confidence",
             "Manual correction",
             "Submit intake",
             "Validation scoring",
@@ -162,32 +168,41 @@ async def submit_intake(request: Request) -> dict[str, Any]:
             payload = IntakePayload.model_validate(json.loads(str(form["payload"])))
         except (KeyError, ValueError, TypeError) as exc:
             raise HTTPException(status_code=422, detail="Invalid intake form") from exc
-        uploaded = form.get("file")
-        content = await uploaded.read() if hasattr(uploaded, "read") else b""
-        mime = uploaded.content_type if hasattr(uploaded, "content_type") else "application/octet-stream"
+        uploads = [item for item in form.getlist("files") if hasattr(item, "read")]
+        # Backwards compatibility for clients using the original single-file field.
+        if not uploads and hasattr(form.get("file"), "read"):
+            uploads = [form.get("file")]
+        documents = [(
+            upload.filename or "vendor-document.pdf",
+            await upload.read(),
+            upload.content_type or "application/octet-stream",
+        ) for upload in uploads]
     else:
         payload = IntakePayload.model_validate(await request.json())
-        content, mime = b"", "application/octet-stream"
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Document exceeds 10 MB")
+        documents = []
+    _validate_documents(documents, required=storage.configured())
     values = payload.model_dump()
+    values["document_names"] = [name for name, _, _ in documents]
+    if documents:
+        values["document_name"] = documents[0][0]
     if storage.configured():
         values["case_id"] = "VO-" + uuid4().hex[:10].upper()
     case = create_case_from_intake(values)
     if storage.configured():
         try:
-            if not content:
-                raise ValueError("A document is required for Supabase persistence")
-            storage.save_intake(case, payload.model_dump(), content, mime)
+            storage.save_intake(case, payload.model_dump(), documents)
             case["documents"] = storage.find_case(case["id"])["documents"]
         except Exception as exc:
             from app.data import DEMO_CASES, AUDIT_EVENTS
             DEMO_CASES[:] = [item for item in DEMO_CASES if item["id"] != case["id"]]
             AUDIT_EVENTS[:] = [item for item in AUDIT_EVENTS if item["case_id"] != case["id"]]
             raise HTTPException(status_code=503, detail=f"Case was not stored: {exc}") from exc
-    elif content:
-        LOCAL_FILES[case["id"]] = (content, mime)
-        case["documents"][0]["available"] = True
+    elif documents:
+        for index, (name, content, mime) in enumerate(documents):
+            document_id = f"source-document-{index + 1}"
+            LOCAL_FILES[(case["id"], document_id)] = (content, mime, name)
+        for document in case["documents"]:
+            document["available"] = True
         find_case(case["id"])["documents"] = case["documents"]
     return case
 
@@ -203,10 +218,11 @@ def open_document(case_id: str, document_id: str):
         if url:
             return RedirectResponse(url)
     case = find_case(case_id)
-    if case and document_id == "source-document" and case_id in LOCAL_FILES:
-        content, mime = LOCAL_FILES[case_id]
+    local_document = LOCAL_FILES.get((case_id, document_id))
+    if case and local_document:
+        content, mime, name = local_document
         return Response(content, media_type=mime, headers={
-            "Content-Disposition": f"inline; filename*=UTF-8''{quote(case['document'])}"})
+            "Content-Disposition": f"inline; filename*=UTF-8''{quote(name)}"})
     raise HTTPException(status_code=404, detail="Document file is not available")
 
 
@@ -244,10 +260,48 @@ def decide_case(case_id: str, payload: DecisionPayload) -> dict[str, Any]:
     return case
 
 
-@app.post("/api/upload/simulate")
-async def simulate_upload(
-    file: UploadFile = File(...),
+def _validate_documents(documents: list[tuple[str, bytes, str]], required: bool = True) -> None:
+    if required and not documents:
+        raise HTTPException(status_code=422, detail="Upload at least one vendor document")
+    if len(documents) > MAX_DOCUMENTS:
+        raise HTTPException(status_code=413, detail=f"A maximum of {MAX_DOCUMENTS} documents is allowed")
+    if sum(len(content) for _, content, _ in documents) > MAX_TOTAL_SIZE:
+        raise HTTPException(status_code=413, detail="Combined documents exceed 30 MB")
+    for name, content, _ in documents:
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail=f"{name} exceeds 10 MB")
+        if Path(name).suffix.lower() not in SUPPORTED_EXTENSIONS:
+            raise HTTPException(status_code=415, detail=f"Unsupported document type: {name}")
+
+
+@app.post("/api/upload/extract")
+async def extract_uploads(
+    files: list[UploadFile] = File(...),
     category: str = Form("General"),
 ) -> dict[str, Any]:
-    filename = file.filename or "vendor-document.pdf"
-    return simulate_document_extraction(filename, category)
+    documents = [(
+        upload.filename or "vendor-document.pdf",
+        await upload.read(),
+        upload.content_type or "application/octet-stream",
+    ) for upload in files]
+    _validate_documents(documents)
+    try:
+        result = extract_documents([(name, content) for name, content, _ in documents])
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {
+        **result,
+        "category": category,
+        "message": "Document extraction completed. Review low-confidence or missing fields before submission.",
+    }
+
+
+@app.post("/api/upload/simulate", deprecated=True)
+async def simulate_upload(file: UploadFile = File(...), category: str = Form("General")) -> dict[str, Any]:
+    """Compatibility endpoint retained for older frontend builds."""
+    content = await file.read()
+    try:
+        result = extract_documents([(file.filename or "vendor-document.pdf", content)])
+        return {**result, "document_name": file.filename, "category": category}
+    except Exception:
+        return simulate_document_extraction(file.filename or "vendor-document.pdf", category)

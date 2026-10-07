@@ -79,7 +79,7 @@
         </section>
 
         <section id="intake" class="view" aria-labelledby="intakeTitle">
-          <div class="page-heading"><div><p class="eyebrow">New request</p><h1 id="intakeTitle">Create vendor intake</h1><p>Upload the source document, verify extracted data, then run validation.</p></div></div>
+          <div class="page-heading"><div><p class="eyebrow">New request</p><h1 id="intakeTitle">Create vendor intake</h1><p>Upload all available evidence, verify the extracted data, then run validation.</p></div></div>
 
           <ol class="stepper" aria-label="Intake progress">
             <li class="active" id="stepUpload"><span>1</span><div><strong>Document</strong><small>Upload source</small></div></li>
@@ -89,18 +89,24 @@
 
           <section class="surface intake-surface">
             <div class="intake-main">
-              <div class="section-heading"><span class="section-number">1</span><div><h2>Source document</h2><p>PDF, image, Word document, or ZIP up to 10 MB.</p></div></div>
+              <div class="section-heading"><span class="section-number">1</span><div><h2>Vendor documents</h2><p>Select multiple PDF, image, Word, or text files. Maximum 10 MB per file and 30 MB combined.</p></div></div>
+              <div class="required-documents" aria-labelledby="requiredDocumentsTitle">
+                <div class="required-documents-heading"><strong id="requiredDocumentsTitle">Expected evidence</strong><span>Upload what is available</span></div>
+                <div class="document-requirements">
+                  <span data-requirement="business_registration"><i aria-hidden="true">1</i>Business registration</span>
+                  <span data-requirement="tax_certificate"><i aria-hidden="true">2</i>GST/PAN certificate</span>
+                  <span data-requirement="bank_proof"><i aria-hidden="true">3</i>Cancelled cheque / bank proof</span>
+                  <span data-requirement="address_proof"><i aria-hidden="true">4</i>Registered address proof</span>
+                  <span data-requirement="compliance_declaration"><i aria-hidden="true">5</i>Compliance declaration</span>
+                </div>
+              </div>
               <div class="upload-zone" id="uploadZone">
-                <input id="documentInput" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.zip" aria-label="Choose vendor document">
+                <input id="documentInput" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.docx,.txt" aria-label="Choose vendor documents">
                 <div class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></div>
-                <div><strong>Drop a vendor document here</strong><p id="uploadHint">or click to browse from your computer</p></div>
+                <div><strong>Drop vendor documents here</strong><p id="uploadHint">or click to select multiple files</p></div>
                 <button class="secondary-btn" id="simulateExtraction" type="button" disabled>Extract details</button>
               </div>
-              <div class="file-summary" id="fileSummary" hidden>
-                <div class="file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></div>
-                <div><strong id="fileName">Document</strong><small id="fileMeta">Ready for extraction</small></div>
-                <button class="icon-btn" id="removeDocument" type="button" aria-label="Remove document"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg></button>
-              </div>
+              <div class="selected-files" id="fileSummary" hidden><div class="selected-files-header"><strong id="fileName">Selected documents</strong><button class="tertiary-btn" id="removeDocument" type="button">Clear all</button></div><div id="selectedFileList"></div><small id="fileMeta">Ready for extraction</small></div>
 
               <div class="section-divider"></div>
               <div class="section-heading"><span class="section-number">2</span><div><h2>Vendor details</h2><p>Review extracted values before submitting the case.</p></div><span class="extraction-badge" id="extractionBadge">Manual entry</span></div>
@@ -121,7 +127,8 @@
             </div>
 
             <aside class="evidence-panel" aria-labelledby="evidenceTitle">
-              <div><p class="eyebrow">AI extraction</p><h2 id="evidenceTitle">Document evidence</h2><p>Extracted fields and confidence appear here after processing.</p></div>
+              <div><p class="eyebrow">Document extraction</p><h2 id="evidenceTitle">Evidence and confidence</h2><p>Fields are combined across documents. Low-confidence values remain editable.</p></div>
+              <div class="extraction-score" id="extractionScore" hidden><div><span>Extraction confidence</span><strong id="extractionScoreValue">0%</strong></div><div class="score-line"><span id="extractionScoreBar"></span></div><p id="extractionScoreMessage"></p></div>
               <div id="extractionPreview" class="evidence-empty"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><strong>No document processed</strong><p>Upload a document and run extraction to review source values.</p></div>
             </aside>
           </section>

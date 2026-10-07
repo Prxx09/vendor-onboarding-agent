@@ -6,7 +6,8 @@ The flow is designed around one hard rule: the user uploads the vendor document 
 
 ## Features
 
-- Document-first intake with auto-populated editable fields
+- Multi-document intake with PDF text extraction and OCR for scanned PDFs/images
+- Auto-populated editable fields with per-field source and confidence evidence
 - Validation scoring across KYC, tax, sanctions, banking, compliance, and document quality
 - Configurable pass/fail confidence threshold
 - Auto-approval for low-risk vendors and review queue for exceptions
@@ -77,11 +78,12 @@ Copy `.env.example` to `.env` and add the server-side Supabase key before enabli
 - `GET /api/demo-cases/{case_id}`
 - `POST /api/intake/submit`
 - `POST /api/demo-cases/{case_id}/decision`
-- `POST /api/upload/simulate`
+- `POST /api/upload/extract` (multiple files)
+- `POST /api/upload/simulate` (legacy compatibility)
 - `GET /api/audit-events`
 - `GET /api/storage/status`
 
-The **Submitted form & documents** tab opens when a case is selected. It shows the stored form values and each recorded document, with a clear unavailable state for legacy metadata without source bytes.
+The **Submitted form & documents** tab opens when a case is selected. It shows the stored form values and every recorded document, with a clear unavailable state for legacy metadata without source bytes. New intake supports up to eight documents, with a 10 MB per-file and 30 MB combined limit.
 
 ## Synthetic test pack
 
@@ -92,4 +94,4 @@ python -m pip install -r requirements-demo.txt
 python -m scripts.build_showcase_fixtures .\\showcased_cases
 ```
 
-The importer accepts the complete ZIP, including the showcase files. It requires a server-side Supabase key in `.env`. Existing records without file bytes remain marked as unavailable until the import completes. The current extractor is filename based, so the pack does not certify content extraction or all reference checks.
+The importer accepts the complete ZIP, including the showcase files. It requires a server-side Supabase key in `.env`. Existing records without file bytes remain marked as unavailable until the import completes. The intake extractor reads text PDFs and DOCX/TXT files directly, and uses RapidOCR for scanned PDFs and PNG/JPEG images. Validation rules remain deterministic demo checks rather than live government, sanctions, or bank reference integrations.

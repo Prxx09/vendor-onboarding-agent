@@ -104,7 +104,13 @@ def find_case(case_key: str) -> dict | None:
     return map_case(rows[0]) if rows else None
 
 
-def upload_document(case_key: str, name: str, content: bytes, mime_type: str | None = None) -> dict:
+def upload_document(
+    case_key: str,
+    name: str,
+    content: bytes,
+    mime_type: str | None = None,
+    document_type: str = "uploaded",
+) -> dict:
     rows = _rows("onboarding_cases", {"select": "id", "case_key": "eq." + case_key, "limit": "1"})
     if not rows:
         raise ValueError("Unknown case")
@@ -115,7 +121,7 @@ def upload_document(case_key: str, name: str, content: bytes, mime_type: str | N
              {"Content-Type": mime, "x-upsert": "false"})
     existing = _rows("case_documents", {"select": "id", "case_id": "eq." + rows[0]["id"],
                                          "file_name": "eq." + safe_name, "storage_path": "is.null", "limit": "1"})
-    document = {"case_id": rows[0]["id"], "document_type": "uploaded", "file_name": safe_name,
+    document = {"case_id": rows[0]["id"], "document_type": document_type, "file_name": safe_name,
                 "mime_type": mime, "storage_path": path, "file_hash": hashlib.sha256(content).hexdigest(),
                 "extraction_status": "pending"}
     try:
@@ -146,7 +152,7 @@ def document_url(case_key: str, document_id: str) -> str | None:
     return signed if signed.startswith("https://") else os.environ["SUPABASE_URL"].rstrip("/") + (signed if signed.startswith("/") else "/" + signed)
 
 
-def save_intake(case: dict, payload: dict, content: bytes, mime_type: str | None) -> None:
+def save_intake(case: dict, payload: dict, documents: list[tuple[str, bytes, str]]) -> None:
     row = {"case_key": case["id"], "request_id": case["id"], "title": case["vendor_name"],
            "status": case["status"], "confidence_score": case["confidence"],
            "risk_label": case["risk_level"], "supplier_name": case["vendor_name"],
@@ -155,8 +161,13 @@ def save_intake(case: dict, payload: dict, content: bytes, mime_type: str | None
            "tax_id": payload.get("tax_id"), "contact_email": payload.get("contact_email"),
            "raw_request": {"form": payload, "data_classification": "vendor_intake"}}
     inserted = _request("/rest/v1/onboarding_cases", "POST", row, {"Prefer": "return=representation"})[0]
+    uploaded_paths: list[str] = []
     try:
-        upload_document(case["id"], case["document"], content, mime_type)
+        for index, (name, content, mime_type) in enumerate(documents):
+            uploaded = upload_document(case["id"], name, content, mime_type,
+                                       "Source document" if index == 0 else "Supporting document")
+            if uploaded.get("storage_path"):
+                uploaded_paths.append(uploaded["storage_path"])
         if case["checks"]:
             checks = [{"case_id": inserted["id"], "code": "CHECK_" + str(index + 1),
                        "check_name": check["name"], "result": check["result"],
@@ -164,6 +175,11 @@ def save_intake(case: dict, payload: dict, content: bytes, mime_type: str | None
                       for index, check in enumerate(case["checks"])]
             _request("/rest/v1/validation_checks", "POST", checks)
     except Exception:
+        for path in uploaded_paths:
+            try:
+                _request("/storage/v1/object/" + BUCKET + "/" + quote(path, safe="/"), "DELETE")
+            except Exception:
+                pass
         _request("/rest/v1/onboarding_cases?" + urlencode({"case_key": "eq." + case["id"]}), "DELETE")
         raise
 
