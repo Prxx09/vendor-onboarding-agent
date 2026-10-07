@@ -264,6 +264,11 @@ async def dashboard():
     return await _repository().dashboard()
 
 
+@router.get("/master-vendors")
+async def master_vendors():
+    return await _repository().list_registered_vendors()
+
+
 @router.get("/vendors")
 async def list_vendors(
     status: str | None = Query(default=None),
