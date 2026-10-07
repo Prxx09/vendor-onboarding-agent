@@ -85,6 +85,26 @@ class VendorRepository:
         return None
 
     @staticmethod
+    def _risk_level(run: dict | None) -> str | None:
+        checks = (run or {}).get("checks") or []
+        if not checks:
+            return None
+        flagged = [
+            check for check in checks
+            if isinstance(check, dict)
+            and check.get("status") in {"REVIEW_REQUIRED", "MISMATCH", "NOT_FOUND", "ERROR"}
+        ]
+        if not flagged:
+            return "LOW"
+        if any(
+            "sanctions" in str(check.get("source") or "").lower()
+            and check.get("status") != "VERIFIED"
+            for check in flagged
+        ):
+            return "HIGH"
+        return "MEDIUM"
+
+    @staticmethod
     def _derived_confidence(run: dict | None, documents: list[dict]) -> float | None:
         if run and run.get("confidence_score") is not None:
             try:
@@ -262,6 +282,7 @@ class VendorRepository:
                     "confidence_score": self._derived_confidence(
                         run, docs_by_vendor.get(vendor["id"], [])
                     ),
+                    "risk_level": self._risk_level(run),
                     "latest_run": run,
                 }
             )
@@ -401,8 +422,16 @@ class VendorRepository:
                 run_rows[0], document_rows
             )
 
+        vendor_row = vendor.data[0]
+        vendor_row["risk_level"] = self._risk_level(run_rows[0] if run_rows else None)
+        vendor_row["last_reviewer"] = (
+            (reviews.data or [{}])[0].get("reviewer")
+            if reviews.data
+            else None
+        )
+
         return {
-            "vendor": vendor.data[0],
+            "vendor": vendor_row,
             "documents": document_rows,
             "agent_runs": run_rows,
             "reviews": reviews.data or [],
