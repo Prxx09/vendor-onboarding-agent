@@ -37,8 +37,9 @@ legal company name, registration number, address, issue date and expiry date.
 For tax certificates, extract:
 legal company name, tax identifier, PAN when explicitly present, address and relevant dates.
 
-If any document explicitly contains a vendor contact email or vendor category,
-extract those values as contact_email and vendor_category. Otherwise use null.
+If any document explicitly contains a primary/vendor contact name, email, phone,
+or vendor category/capability, extract those values as contact_name,
+contact_email, contact_phone, and vendor_category. Otherwise use null.
 
 For every extracted field, populate field_confidence with a 0.0-1.0 confidence
 value keyed by the JSON field name. Omit confidence entries for absent fields.
