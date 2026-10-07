@@ -182,3 +182,16 @@ sql/frontend_workflow_migration.sql
 
 This adds the case metadata, scorecard, audit and document-storage fields needed
 by the expanded frontend.
+
+
+## Backend workflow metadata and validation
+
+The backend is the source of truth for workflow and upload policy:
+
+- `GET /health` reports API status, storage mode, verification-provider mode and whether Supabase credentials are configured.
+- `GET /api/v1/config` returns workflow stages, upload limits, required documents, intake fields, configured threshold, storage bucket and required Supabase tables.
+- Uploads are validated by count, individual size, combined size, extension/MIME consistency and PDF/image file signatures.
+- `POST /api/v1/documents/extract` returns document-level extraction metadata, field-level confidence/source mapping, missing required fields, document coverage and overall extraction confidence.
+- `GET /api/v1/vendors/{vendor_id}/documents/{document_id}` opens a stored document through a short-lived Supabase signed URL.
+
+The current MVP intentionally does not add a simulated extraction fallback or local-memory persistence. Extraction failures remain visible, and Supabase is the configured persistence layer for the demo.

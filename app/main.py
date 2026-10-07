@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.core.config import get_settings
 
 
 app = FastAPI(
@@ -27,4 +28,13 @@ app.include_router(router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    settings = get_settings()
+    return {
+        "status": "ok",
+        "storage_mode": "supabase",
+        "supabase_configured": bool(
+            settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY
+        ),
+        "verification_provider_mode": settings.VERIFICATION_PROVIDER_MODE,
+        "document_storage_bucket": settings.DOCUMENT_STORAGE_BUCKET,
+    }

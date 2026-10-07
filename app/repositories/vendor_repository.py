@@ -439,6 +439,23 @@ class VendorRepository:
             "audit_events": audit_rows,
         }
 
+    async def get_document(self, vendor_id: str, document_id: int) -> dict | None:
+        result = (
+            self.db.table("verification_vendor_documents")
+            .select("*")
+            .eq("vendor_id", vendor_id)
+            .eq("id", document_id)
+            .limit(1)
+            .execute()
+        )
+        if not result.data:
+            return None
+
+        document = result.data[0]
+        document["document_url"] = self._signed_url(document.get("storage_path"))
+        document["available"] = bool(document["document_url"])
+        return document
+
     async def save_review(
         self,
         vendor_id: str,

@@ -35,6 +35,8 @@ class DocumentExtraction(BaseModel):
     ifsc_swift: str | None = None
 
     registered_address: str | None = None
+    contact_email: str | None = None
+    vendor_category: str | None = None
     issue_date: str | None = None
     expiry_date: str | None = None
 

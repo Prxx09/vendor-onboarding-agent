@@ -1,7 +1,10 @@
 import asyncio
+import re
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import RedirectResponse
 
 from app.agent.vendor_agent import REQUIRED_DOCUMENTS, VendorVerificationAgent
 from app.core.config import get_settings
@@ -14,6 +17,26 @@ from app.services.groq_extractor import GroqDocumentExtractor
 
 
 router = APIRouter(prefix="/api/v1", tags=["vendor-onboarding"])
+
+WORKFLOW_STAGES = [
+    {"key": "upload", "label": "Upload"},
+    {"key": "verify", "label": "Verify"},
+    {"key": "submit", "label": "Submit"},
+]
+
+REQUIRED_SUPABASE_TABLES = [
+    "verification_vendors",
+    "verification_vendor_documents",
+    "verification_agent_runs",
+    "verification_review_decisions",
+    "verification_audit_events",
+    "company_registry",
+    "tax_registry",
+    "bank_account_registry",
+    "kyc_registry",
+    "sanctions_registry",
+    "vendor_master_snapshot",
+]
 
 
 def _repository() -> VendorRepository:
@@ -31,6 +54,83 @@ def _agent() -> VendorVerificationAgent:
 
 def _csv_values(raw: str) -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _normalized_mime_type(filename: str, mime_type: str) -> str:
+    if mime_type != "application/octet-stream":
+        return mime_type
+    extension = Path(filename or "").suffix.lower()
+    return {
+        ".pdf": "application/pdf",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+    }.get(extension, mime_type)
+
+
+def _validate_file_content(filename: str, mime_type: str, content: bytes) -> None:
+    if not content:
+        raise HTTPException(status_code=400, detail=f"{filename} is empty.")
+
+    extension = Path(filename or "").suffix.lower()
+    allowed_extensions = {
+        "application/pdf": {".pdf"},
+        "image/png": {".png"},
+        "image/jpeg": {".jpg", ".jpeg"},
+        "image/jpg": {".jpg", ".jpeg"},
+        "image/webp": {".webp"},
+    }.get(mime_type)
+
+    if allowed_extensions and extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File extension does not match the MIME type for {filename}.",
+        )
+
+    valid_signature = True
+    if mime_type == "application/pdf":
+        valid_signature = content.startswith(b"%PDF-")
+    elif mime_type == "image/png":
+        valid_signature = content.startswith(b"\x89PNG\r\n\x1a\n")
+    elif mime_type in {"image/jpeg", "image/jpg"}:
+        valid_signature = content.startswith(b"\xff\xd8\xff")
+    elif mime_type == "image/webp":
+        valid_signature = (
+            len(content) >= 12
+            and content[:4] == b"RIFF"
+            and content[8:12] == b"WEBP"
+        )
+
+    if not valid_signature:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{filename} does not contain valid {mime_type} content.",
+        )
+
+
+def _validate_submitted_data(data: dict[str, Any]) -> None:
+    email = str(data.get("contact_email") or "").strip()
+    if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(status_code=422, detail="Contact email format is invalid.")
+
+    pan = str(data.get("pan") or "").strip().upper()
+    if pan and not re.fullmatch(r"[A-Z]{5}[0-9]{4}[A-Z]", pan):
+        raise HTTPException(
+            status_code=422,
+            detail="PAN must match the standard 10-character PAN format.",
+        )
+
+    bank_account = str(data.get("bank_account") or "").strip()
+    if bank_account and not re.fullmatch(r"[A-Za-z0-9-]{6,34}", bank_account):
+        raise HTTPException(
+            status_code=422,
+            detail="Bank account must contain 6-34 letters, numbers, or hyphens.",
+        )
+
+    ifsc = str(data.get("ifsc") or "").strip()
+    if ifsc and not re.fullmatch(r"[A-Za-z0-9-]{4,20}", ifsc):
+        raise HTTPException(status_code=422, detail="IFSC/SWIFT format is invalid.")
 
 
 def _upload_policy() -> dict[str, Any]:
@@ -68,7 +168,10 @@ async def _read_uploads(files: list[UploadFile]) -> list[dict]:
     max_combined_bytes = settings.MAX_COMBINED_UPLOAD_MB * 1024 * 1024
 
     for upload in files:
-        mime_type = upload.content_type or "application/octet-stream"
+        mime_type = _normalized_mime_type(
+            upload.filename or "document",
+            upload.content_type or "application/octet-stream",
+        )
         if mime_type not in policy["supported_mime_types"]:
             raise HTTPException(
                 status_code=400,
@@ -76,6 +179,7 @@ async def _read_uploads(files: list[UploadFile]) -> list[dict]:
             )
 
         content = await upload.read()
+        _validate_file_content(upload.filename or "document", mime_type, content)
         combined += len(content)
         if len(content) > max_file_bytes:
             raise HTTPException(
@@ -124,6 +228,15 @@ async def frontend_config():
     if threshold is not None and threshold <= 1:
         threshold *= 100.0
     return {
+        "workflow_stages": WORKFLOW_STAGES,
+        "storage": {
+            "mode": "supabase",
+            "supabase_configured": bool(
+                settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY
+            ),
+            "document_bucket": settings.DOCUMENT_STORAGE_BUCKET,
+            "required_tables": REQUIRED_SUPABASE_TABLES,
+        },
         "upload": _upload_policy(),
         "verification": {
             "required_documents": REQUIRED_DOCUMENTS,
@@ -191,6 +304,7 @@ async def extract_documents(files: list[UploadFile] = File(...)):
     )
 
     extractions: list[DocumentExtraction] = []
+    document_results: list[dict[str, Any]] = []
     errors: list[dict] = []
     for item, result in zip(payloads, results):
         if isinstance(result, Exception):
@@ -200,6 +314,7 @@ async def extract_documents(files: list[UploadFile] = File(...)):
             payload = extraction.model_dump(mode="json")
             payload["extraction_method"] = document_text.method
             payload["page_count"] = document_text.page_count
+            document_results.append(payload)
             extractions.append(extraction)
 
     field_map = {
@@ -209,6 +324,8 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         "bank_account": "bank_account_number",
         "ifsc": "ifsc_swift",
         "registered_address": "registered_address",
+        "contact_email": "contact_email",
+        "category": "vendor_category",
     }
     suggestions: dict[str, dict[str, Any]] = {}
 
@@ -216,12 +333,21 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         for target, source_field in field_map.items():
             value = getattr(output, source_field, None)
             if value and target not in suggestions:
+                document_meta = next(
+                    (
+                        item
+                        for item in document_results
+                        if item.get("filename") == output.filename
+                    ),
+                    {},
+                )
                 suggestions[target] = {
                     "value": value,
                     "confidence": output.field_confidence.get(
                         source_field, output.confidence
                     ),
                     "source": output.filename,
+                    "extraction_method": document_meta.get("extraction_method"),
                 }
 
     settings = get_settings()
@@ -232,12 +358,43 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         if field != "compliance_confirmed" and not suggestions.get(field)
     ]
 
+    required_document_types = set(REQUIRED_DOCUMENTS)
+    present_document_types = {
+        output.document_type
+        for output in extractions
+        if output.document_type in required_document_types
+    }
+    missing_documents = [
+        REQUIRED_DOCUMENTS[doc_type]
+        for doc_type in REQUIRED_DOCUMENTS
+        if doc_type not in present_document_types
+    ]
+    overall_confidence = (
+        round(
+            sum(output.confidence for output in extractions)
+            / len(extractions)
+            * 100.0,
+            1,
+        )
+        if extractions
+        else None
+    )
+
     return {
-        "documents": [
-            output.model_dump(mode="json") for output in extractions
-        ],
+        "documents": document_results,
         "field_suggestions": suggestions,
         "missing_required_fields": missing_required_fields,
+        "missing_fields": missing_required_fields,
+        "overall_extraction_confidence": overall_confidence,
+        "document_coverage": {
+            "required": list(REQUIRED_DOCUMENTS.values()),
+            "present": [
+                REQUIRED_DOCUMENTS[doc_type]
+                for doc_type in REQUIRED_DOCUMENTS
+                if doc_type in present_document_types
+            ],
+            "missing": missing_documents,
+        },
         "errors": errors,
     }
 
@@ -271,6 +428,7 @@ async def process_vendor(
         submitted_by=submitted_by,
         compliance_confirmed=compliance_confirmed,
     )
+    _validate_submitted_data(submitted_data)
     return await _agent().run(
         legal_name=legal_name,
         files=payloads,
@@ -312,6 +470,16 @@ async def add_vendor_documents(
         existing_extractions=existing_extractions,
         submitted_data=submitted_data,
     )
+
+
+@router.get("/vendors/{vendor_id}/documents/{document_id}")
+async def open_vendor_document(vendor_id: str, document_id: int):
+    document = await _repository().get_document(vendor_id, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    if not document.get("document_url"):
+        raise HTTPException(status_code=404, detail="Stored document file is unavailable.")
+    return RedirectResponse(url=document["document_url"], status_code=307)
 
 
 @router.get("/vendors/review-queue")
