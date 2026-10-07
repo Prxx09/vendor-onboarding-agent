@@ -20,6 +20,12 @@ def _review_decision_audit_event(
         "REQUEST_INFORMATION": "Reviewer requested additional information.",
     }.get(decision, f"Reviewer decision: {decision or 'UNKNOWN'}.")
 
+    final_status = {
+        "APPROVE": "APPROVED",
+        "REJECT": "REJECTED",
+        "REQUEST_INFORMATION": "ACTION_REQUIRED",
+    }.get(decision)
+
     return {
         "id": f"review-{review.get('id')}",
         "vendor_id": review.get("vendor_id"),
@@ -30,6 +36,7 @@ def _review_decision_audit_event(
             "decision": decision,
             "comment": review.get("comment") or "",
             "review_decision_id": review.get("id"),
+            "final_status": final_status,
         },
         "created_at": review.get("created_at"),
         "verification_vendors": (
