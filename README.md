@@ -164,3 +164,21 @@ The seed data is aligned to the synthetic sample pack:
 - Northstar Export Trading LLC -> sanctions/KYC flag -> REVIEW_REQUIRED
 
 All sample registry data is synthetic and must not be represented as real government, KYC or bank verification.
+
+
+## Expanded frontend workflow
+
+The React frontend now includes live dashboard metrics, vendor case listing,
+automatic extraction/form population, scorecards, human review actions,
+document access and an audit trail. UI policy comes from `GET /api/v1/config`;
+the frontend does not embed fixed demo vendors, users, regions, upload limits or
+approval thresholds.
+
+For an existing Supabase project that already has the earlier MVP schema, run:
+
+~~~text
+sql/frontend_workflow_migration.sql
+~~~
+
+This adds the case metadata, scorecard, audit and document-storage fields needed
+by the expanded frontend.
