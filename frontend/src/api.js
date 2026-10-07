@@ -60,6 +60,12 @@ export async function getDashboard() {
   return parseResponse(await fetch(`${API_BASE_URL}/api/v1/dashboard`));
 }
 
+export async function listMasterVendors() {
+  return parseResponse(
+    await fetch(`${API_BASE_URL}/api/v1/master-vendors`),
+  );
+}
+
 export async function listVendors({ status = "", query = "" } = {}) {
   return parseResponse(
     await fetch(withQuery("/api/v1/vendors", { status, query })),
