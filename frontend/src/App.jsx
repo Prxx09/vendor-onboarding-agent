@@ -342,7 +342,7 @@ function ExtractionCard({ item }) {
   );
 }
 
-function MissingDocumentUpload({ result, config, onUpdated }) {
+function MissingDocumentUpload({ result, config, onUpdated, title = "Supply Missing Evidence", compact = false }) {
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -373,7 +373,9 @@ function MissingDocumentUpload({ result, config, onUpdated }) {
     setBusy(true);
     setError("");
     try {
-      onUpdated(await uploadVendorDocuments(result.vendor_id, files));
+      const payload = await uploadVendorDocuments(result.vendor_id, files);
+      await onUpdated?.(payload);
+      setFiles([]);
     } catch (err) {
       setError(err.message || "Could not upload missing documents.");
     } finally {
@@ -382,15 +384,19 @@ function MissingDocumentUpload({ result, config, onUpdated }) {
   };
 
   return (
-    <div className="panel missing-upload">
-      <div className="panel-title"><UploadCloud size={19} /> Supply Missing Evidence</div>
+    <div className={`panel missing-upload ${compact ? "compact" : ""}`}>
+      <div className="panel-title"><UploadCloud size={19} /> {title}</div>
       <div className="missing-upload-body">
-        <p>Required: <strong>{result.missing_documents.join(", ")}</strong></p>
+        <p>
+          {result.missing_documents?.length
+            ? <>Required: <strong>{result.missing_documents.join(", ")}</strong></>
+            : <>Upload the requested supporting document(s) to continue this application.</>}
+        </p>
         <input type="file" multiple onChange={(e) => setFiles(validate(e.target.files))} />
         {files.length > 0 && <div className="compact-file-list">{files.map((file) => <span key={file.name}>{file.name}</span>)}</div>}
         {error && <div className="form-error"><XCircle size={18} />{error}</div>}
         <button className="primary-button" disabled={busy || !files.length} onClick={submit}>
-          {busy ? <><RefreshCw className="spin" size={17} /> Re-running verification…</> : <><UploadCloud size={17} /> Upload and resume</>}
+          {busy ? <><RefreshCw className="spin" size={17} /> Re-Running Verification…</> : <><UploadCloud size={17} /> Upload And Continue</>}
         </button>
       </div>
     </div>
@@ -572,11 +578,11 @@ function CasesView({ initialCaseId = null, config }) {
       <div className="toolbar panel">
         <div className="search-field"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search vendor name or case ID" /></div>
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All statuses</option>
-          <option value="REVIEW_REQUIRED">Needs review</option>
+          <option value="">All Statuses</option>
+          <option value="REVIEW_REQUIRED">Needs Review</option>
           <option value="APPROVED">Approved</option>
           <option value="REJECTED">Rejected</option>
-          <option value="ACTION_REQUIRED">Needs information</option>
+          <option value="ACTION_REQUIRED">Needs Information</option>
         </select>
         <button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button>
       </div>
@@ -925,7 +931,7 @@ function NewVendorView({ config, notify }) {
 }
 
 function DocumentList({ documents = [] }) {
-  if (!documents.length) return <EmptyState title="No documents" copy="No document metadata is associated with this case." icon={FileText} />;
+  if (!documents.length) return <EmptyState title="No Documents" copy="No document metadata is associated with this case." icon={FileText} />;
   return (
     <div className="document-list">
       {documents.map((doc) => (
@@ -997,6 +1003,34 @@ function CaseDetail({ vendorId, config, onBack }) {
             <Metric label="Last Updated" value={formatDate(vendor.updated_at)} icon={History} />
           </div>
           {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Decision Explanation</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
+
+          {vendor.status === "ACTION_REQUIRED" && (
+            <div className="continue-application">
+              <div className="callout warning">
+                <CircleAlert size={20} />
+                <div>
+                  <strong>Application Paused - Additional Information Required</strong>
+                  <p>
+                    This case is not in Human Review. Upload the missing evidence below to continue the same application and keep the same Case ID.
+                  </p>
+                </div>
+              </div>
+              <MissingDocumentUpload
+                result={{
+                  vendor_id: vendor.id,
+                  missing_documents: latest.missing_documents || [],
+                }}
+                config={config}
+                title="Continue Application"
+                compact
+                onUpdated={async () => {
+                  await load();
+                  setTab("overview");
+                }}
+              />
+            </div>
+          )}
+
           <div className="two-column">
             <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation Checks</div><CheckList checks={latest.checks || []} /></div>
             <div className="panel"><div className="panel-title"><Activity size={19} /> Latest Agent Run</div><Timeline events={latest.events || []} /></div>
@@ -1012,7 +1046,7 @@ function CaseDetail({ vendorId, config, onBack }) {
             <dl className="submission-grid">
               {Object.keys(submitted).length ? Object.entries(submitted).map(([key, value]) => (
                 <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof value === "boolean" ? (value ? "Yes" : "No") : String(value || "—")}</dd></div>
-              )) : <EmptyState title="No submitted form metadata" copy="This case predates structured intake metadata." icon={ClipboardList} />}
+              )) : <EmptyState title="No Submitted Form Metadata" copy="This case predates structured intake metadata." icon={ClipboardList} />}
             </dl>
           </div>
           <div className="panel"><div className="panel-title"><FileText size={19} /> Attached Documents</div><DocumentList documents={detail.documents} /></div>
