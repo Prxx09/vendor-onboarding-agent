@@ -7,10 +7,19 @@
 alter table public.verification_vendors
     add column if not exists region text,
     add column if not exists category text,
+    add column if not exists categories text[] not null default '{}'::text[],
+    add column if not exists contact_name text,
     add column if not exists contact_email text,
+    add column if not exists contact_phone text,
     add column if not exists compliance_confirmed boolean,
     add column if not exists submitted_by text,
     add column if not exists submitted_data jsonb not null default '{}'::jsonb;
+
+update public.verification_vendors
+set categories = array[category]
+where coalesce(array_length(categories, 1), 0) = 0
+  and category is not null
+  and btrim(category) <> '';
 
 alter table public.verification_vendor_documents
     add column if not exists mime_type text,
