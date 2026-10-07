@@ -433,8 +433,80 @@ class VendorRepository:
             )
         return output
 
+    async def list_registered_vendors(self) -> list[dict]:
+        """Return every vendor in the synthetic company registry for the Master Dashboard."""
+        companies = (
+            self.db.table("company_registry")
+            .select("*")
+            .order("legal_name")
+            .execute()
+            .data
+            or []
+        )
+        taxes = (
+            self.db.table("tax_registry")
+            .select("*")
+            .execute()
+            .data
+            or []
+        )
+        kyc_rows = (
+            self.db.table("kyc_registry")
+            .select("*")
+            .execute()
+            .data
+            or []
+        )
+        cases = await self.list_vendors(limit=1000)
+
+        tax_by_registration = {
+            str(item.get("registration_number")): item
+            for item in taxes
+            if item.get("registration_number")
+        }
+        kyc_by_registration = {
+            str(item.get("registration_number")): item
+            for item in kyc_rows
+            if item.get("registration_number")
+        }
+        case_by_name: dict[str, dict] = {}
+        for case in cases:
+            key = str(case.get("legal_name") or "").strip().lower()
+            if key and key not in case_by_name:
+                case_by_name[key] = case
+
+        output: list[dict] = []
+        for company in companies:
+            registration_number = str(company.get("registration_number") or "")
+            tax = tax_by_registration.get(registration_number, {})
+            kyc = kyc_by_registration.get(registration_number, {})
+            case = case_by_name.get(str(company.get("legal_name") or "").strip().lower(), {})
+            output.append(
+                {
+                    "registration_number": company.get("registration_number"),
+                    "legal_name": company.get("legal_name"),
+                    "country": company.get("country"),
+                    "region": company.get("region") or company.get("country"),
+                    "vendor_category": company.get("vendor_category") or company.get("company_type"),
+                    "registered_address": company.get("registered_address"),
+                    "registration_status": company.get("registration_status"),
+                    "registration_valid_to": company.get("registration_valid_to"),
+                    "contact_email": company.get("contact_email"),
+                    "tax_id": tax.get("tax_id"),
+                    "tax_status": tax.get("tax_status"),
+                    "pan": tax.get("pan"),
+                    "kyc_status": kyc.get("kyc_status"),
+                    "case_id": case.get("id"),
+                    "case_status": case.get("status"),
+                    "confidence_score": case.get("confidence_score"),
+                    "case_updated_at": case.get("updated_at"),
+                }
+            )
+        return output
+
     async def dashboard(self) -> dict:
         vendors = await self.list_vendors(limit=1000)
+        registered_vendors = await self.list_registered_vendors()
         total = len(vendors)
         counts = {
             "APPROVED": 0,
@@ -460,6 +532,7 @@ class VendorRepository:
             threshold *= 100.0
 
         return {
+            "registered_vendor_count": len(registered_vendors),
             "total_cases": total,
             "approved_cases": counts["APPROVED"],
             "review_required_cases": counts["REVIEW_REQUIRED"],
