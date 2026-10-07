@@ -178,7 +178,7 @@ def _summary(case: dict[str, Any]) -> dict[str, Any]:
         "id": case["id"],
         "legal_name": case.get("vendor_name") or case.get("submitted_form", {}).get("legal_name") or "Unknown vendor",
         "status": _status(case),
-        "agent_recommendation": _recommendation(case),
+        "agent_recommendation": agent_recommendation,
         "human_decision": case.get("human_decision"),
         "reasons": _reasons(case),
         "created_at": case.get("submitted_at"),
@@ -328,6 +328,8 @@ def review_vendor(vendor_id: str, payload: ReviewPayload) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Decision must be APPROVE or REJECT")
 
     final_status = "APPROVED" if normalized == "APPROVE" else "REJECTED"
+    original_case = _get_case(vendor_id)
+    agent_recommendation = _recommendation(original_case)
     case = find_case(vendor_id)
     if storage.configured():
         try:
