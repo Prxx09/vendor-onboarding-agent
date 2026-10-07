@@ -28,12 +28,13 @@ import {
 import {
   API_BASE_URL,
   extractDocuments,
-  getAuditEvents,
+  // getAuditEvents, // Audit Trail is intentionally hidden for the current demo.
   getConfig,
   getDashboard,
   getHealth,
   getReviewQueue,
   getVendor,
+  listMasterVendors,
   listVendors,
   processVendor,
   reviewVendor,
@@ -467,9 +468,54 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
   );
 }
 
+function MasterVendorTable({ rows, onOpenCase }) {
+  return (
+    <div className="table-wrap">
+      <table className="case-table master-vendor-table">
+        <thead>
+          <tr>
+            <th>Registered Vendor</th>
+            <th>Registration No.</th>
+            <th>Tax ID</th>
+            <th>Category</th>
+            <th>Region</th>
+            <th>Registration</th>
+            <th>KYC</th>
+            <th>Onboarding Status</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.registration_number || row.legal_name}>
+              <td>
+                <strong>{row.legal_name}</strong>
+                {row.contact_email && <div className="table-subtext">{row.contact_email}</div>}
+              </td>
+              <td className="mono">{row.registration_number || "—"}</td>
+              <td>{row.tax_id || "—"}</td>
+              <td>{row.vendor_category || "—"}</td>
+              <td>{row.region || row.country || "—"}</td>
+              <td><StatusPill value={row.registration_status || "REGISTERED"} /></td>
+              <td><StatusPill value={row.kyc_status || "NOT_AVAILABLE"} /></td>
+              <td>{row.case_status ? <StatusPill value={row.case_status} /> : <span className="registered-only">Registered</span>}</td>
+              <td>
+                {row.case_id
+                  ? <button className="icon-button" title="Open Onboarding Case" onClick={() => onOpenCase(row.case_id)}><ChevronRight size={17} /></button>
+                  : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function DashboardView({ onOpenCase }) {
   const [data, setData] = useState(null);
-  const [recent, setRecent] = useState([]);
+  const [registeredVendors, setRegisteredVendors] = useState([]);
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
 
@@ -477,9 +523,9 @@ function DashboardView({ onOpenCase }) {
     setBusy(true);
     setError("");
     try {
-      const [dashboard, cases] = await Promise.all([getDashboard(), listVendors()]);
+      const [dashboard, master] = await Promise.all([getDashboard(), listMasterVendors()]);
       setData(dashboard);
-      setRecent(cases.slice(0, 8));
+      setRegisteredVendors(master);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -489,31 +535,61 @@ function DashboardView({ onOpenCase }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const visibleVendors = registeredVendors.filter((row) => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return [
+      row.legal_name,
+      row.registration_number,
+      row.tax_id,
+      row.vendor_category,
+      row.region,
+      row.country,
+    ].some((value) => String(value || "").toLowerCase().includes(needle));
+  });
+
   return (
     <section className="page-stack">
       <div className="section-heading">
-        <div><div className="eyebrow">Operations</div><h1>Vendor Onboarding Dashboard</h1><p>Live metrics from the verification backend and Supabase case records.</p></div>
+        <div>
+          <div className="eyebrow">Vendor Master</div>
+          <h1>Master Dashboard</h1>
+          <p>All vendors registered in the verification reference master, together with their current onboarding status.</p>
+        </div>
         <button className="ghost-button" onClick={load} disabled={busy}><RefreshCw className={busy ? "spin" : ""} size={17} /> Refresh</button>
       </div>
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
-      {busy && !data ? <div className="loading-card"><RefreshCw className="spin" /> Loading dashboard…</div> : (
+      {busy && !data ? <div className="loading-card"><RefreshCw className="spin" /> Loading Master Dashboard…</div> : (
         <>
           <div className="metric-grid dashboard-metrics">
-            <Metric label="Total Vendor Cases" value={data?.total_cases} icon={ClipboardList} />
+            <Metric label="Registered Vendors" value={data?.registered_vendor_count ?? registeredVendors.length} icon={Building2} />
+            <Metric label="Onboarding Cases" value={data?.total_cases} icon={ClipboardList} />
             <Metric label="Approved Vendors" value={data?.approved_cases} icon={CheckCircle2} tone="success" />
             <Metric label="Needs Human Review" value={data?.review_required_cases} icon={UserCheck} tone="danger" />
-            <Metric label="Average Confidence" value={formatPercent(data?.average_confidence_score)} icon={BarChart3} />
+            <Metric label="Needs Information" value={data?.action_required_cases} icon={CircleAlert} tone="warning" />
             <Metric label="Approval Rate" value={formatPercent(data?.approval_rate)} icon={ShieldCheck} tone="success" />
+            <Metric label="Average Confidence" value={formatPercent(data?.average_confidence_score)} icon={BarChart3} />
             <Metric
               label="Auto-Approval Threshold"
-              value={data?.auto_approval_threshold === null || data?.auto_approval_threshold === undefined ? "Not configured" : formatPercent(data.auto_approval_threshold)}
+              value={data?.auto_approval_threshold === null || data?.auto_approval_threshold === undefined ? "Not Configured" : formatPercent(data.auto_approval_threshold)}
               icon={SearchCheck}
             />
           </div>
-          <div className="dashboard-meta">Recently updated: <strong>{formatDate(data?.recently_updated_at)}</strong></div>
+          <div className="dashboard-meta">Recently Updated: <strong>{formatDate(data?.recently_updated_at)}</strong></div>
+
+          <div className="toolbar panel master-toolbar">
+            <div className="search-field">
+              <Search size={17} />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Registered Vendor, Registration No. Or Tax ID" />
+            </div>
+            <span className="master-count">{visibleVendors.length} Of {registeredVendors.length} Vendors</span>
+          </div>
+
           <div className="panel">
-            <div className="panel-title"><History size={19} /> Recently Updated Cases</div>
-            {recent.length ? <CaseTable rows={recent} onOpen={onOpenCase} /> : <EmptyState title="No cases yet" copy="Submitted vendor cases will appear here." icon={ClipboardList} />}
+            <div className="panel-title"><Building2 size={19} /> Registered Vendor Master</div>
+            {visibleVendors.length
+              ? <MasterVendorTable rows={visibleVendors} onOpenCase={onOpenCase} />
+              : <EmptyState title="No Registered Vendors Found" copy="No vendor matches the current search." icon={Building2} />}
           </div>
         </>
       )}
@@ -833,7 +909,7 @@ function NewVendorView({ config, notify }) {
   return (
     <section className="page-stack">
       <div className="section-heading">
-        <div><div className="eyebrow">New Vendor Intake</div><h1>Capture, extract and verify vendor evidence.</h1><p>Documents are OCR'd first, then structured by Groq and verified against configured backend sources.</p></div>
+        <div><div className="eyebrow">Vendor Intake</div><h1>New Vendor Onboarding</h1><p>Upload vendor evidence, review AI-extracted information, and submit the application for verification.</p></div>
         <button className="ghost-button" onClick={reset}><RefreshCw size={16} /> Reset intake</button>
       </div>
 
@@ -1196,6 +1272,7 @@ function ReviewQueueView({ config, notify }) {
   );
 }
 
+/* AUDIT_TRAIL_DISABLED
 function AuditView() {
   const [events, setEvents] = useState([]);
   const [query, setQuery] = useState("");
@@ -1290,9 +1367,10 @@ function AuditView() {
     </section>
   );
 }
+*/
 
 export default function App() {
-  const [view, setView] = useState("dashboard");
+  const [view, setView] = useState("intake");
   const [caseId, setCaseId] = useState(null);
   const [health, setHealth] = useState("checking");
   const [config, setConfig] = useState(null);
@@ -1322,18 +1400,18 @@ export default function App() {
   };
 
   const nav = [
-    ["dashboard", "Dashboard", LayoutDashboard],
+    ["intake", "New Vendor Onboarding", UploadCloud],
+    ["dashboard", "Master Dashboard", LayoutDashboard],
     ["cases", "Cases", ClipboardList],
-    ["intake", "New Vendor", UploadCloud],
     ["review", "Review Queue", UserCheck],
-    ["audit", "Audit Trail", History],
+    // ["audit", "Audit Trail", History], // Disabled for the current demo.
   ];
 
   return (
     <div className="app-shell">
       <Toast toast={toast} onClose={() => setToast(null)} />
       <header className="topbar">
-        <button className="brand" onClick={() => setView("dashboard")}>
+        <button className="brand" onClick={() => { setCaseId(null); setView("intake"); }}>
           <div className="brand-mark"><ShieldCheck size={22} /></div>
           <div><strong>Vendor Verify</strong><span>Verification Agent</span></div>
         </button>
@@ -1354,7 +1432,7 @@ export default function App() {
         {view === "cases" && <CasesView key={caseId || "cases"} initialCaseId={caseId} config={config} />}
         {view === "intake" && (config ? <NewVendorView config={config} notify={setToast} /> : <div className="loading-card"><RefreshCw className="spin" /> Loading intake policy…</div>)}
         {view === "review" && <ReviewQueueView config={config} notify={setToast} />}
-        {view === "audit" && <AuditView />}
+        {/* {view === "audit" && <AuditView />} Audit Trail disabled for the current demo. */}
       </main>
 
       <footer className="footer">
