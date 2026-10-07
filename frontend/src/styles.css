@@ -1076,3 +1076,216 @@ select:focus-visible,
 .category-suggestion {
   cursor: pointer;
 }
+
+
+/* Review Queue layout corrections */
+.review-layout {
+  grid-template-columns: 350px minmax(0, 1fr);
+  gap: 16px;
+}
+.review-workspace {
+  min-width: 0;
+}
+.review-workspace > .page-stack {
+  gap: 12px;
+}
+.review-sidebar {
+  overflow: hidden;
+  padding: 10px;
+}
+.review-sidebar .search-field {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.review-case-list {
+  overflow-x: hidden;
+  padding-right: 0;
+}
+.review-case-list button {
+  min-width: 0;
+  align-items: flex-start;
+  padding: 11px 10px;
+  overflow: hidden;
+}
+.review-case-copy {
+  min-width: 0;
+  overflow: hidden;
+}
+.review-case-name {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-case-reason {
+  display: -webkit-box !important;
+  margin-top: 5px !important;
+  overflow: hidden !important;
+  color: var(--muted) !important;
+  font-size: 10.5px !important;
+  line-height: 1.4;
+  white-space: normal !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.review-case-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 8px;
+}
+.review-case-meta > span:not(.status-pill) {
+  color: #7b8495;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.review-case-meta .status-pill {
+  flex: 0 0 auto;
+}
+.review-case-chevron {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #98a2b3;
+}
+
+/* Keep review content aligned and compact */
+.review-hero {
+  padding: 16px 18px;
+}
+.review-hero .result-hero-copy {
+  min-width: 0;
+}
+.review-hero h2 {
+  margin: 3px 0 8px;
+  font-size: 20px;
+  line-height: 1.25;
+}
+.review-hero .pill-row {
+  row-gap: 6px;
+}
+.review-workspace .panel-title {
+  padding: 13px 16px;
+}
+.review-workspace .reason-list {
+  padding: 12px 28px 14px;
+  margin: 0;
+}
+.review-workspace .two-column {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.review-workspace .check-list {
+  padding: 4px 16px 12px;
+}
+.review-workspace .check-row {
+  gap: 9px;
+  padding: 10px 0;
+}
+.review-workspace .check-marker {
+  width: 28px;
+  height: 28px;
+}
+.review-workspace .check-head {
+  align-items: flex-start;
+}
+.review-workspace .check-head strong {
+  font-size: 11.5px;
+}
+.review-workspace .check-body p {
+  margin-top: 4px;
+  font-size: 11px;
+}
+.review-workspace .scorecard-stack {
+  padding: 12px;
+}
+.review-workspace .score-summary {
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.review-workspace .score-summary > div {
+  padding: 9px 10px;
+}
+.review-workspace .score-summary strong {
+  font-size: 14px;
+}
+.review-workspace .score-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.review-workspace .score-card {
+  min-width: 0;
+  padding: 10px;
+}
+.review-workspace .score-card-head {
+  align-items: flex-start;
+}
+.review-workspace .score-card-head strong {
+  min-width: 0;
+  line-height: 1.35;
+}
+.review-workspace .score-number {
+  margin-top: 8px;
+  font-size: 17px;
+}
+.review-workspace .score-card p {
+  margin-top: 7px;
+  font-size: 10.5px;
+}
+.review-workspace .document-list {
+  padding: 4px 16px 12px;
+}
+.review-workspace .review-grid {
+  padding: 12px 16px 8px;
+}
+.review-workspace .review-actions {
+  gap: 8px;
+}
+
+/* Prevent accidental horizontal scrolling in the review tab */
+.review-layout,
+.review-sidebar,
+.review-case-list,
+.review-workspace,
+.review-workspace .panel,
+.review-workspace .two-column > * {
+  min-width: 0;
+}
+
+@media (max-width: 1320px) {
+  .review-layout {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+  .review-workspace .score-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .review-layout {
+    grid-template-columns: 1fr;
+  }
+  .review-sidebar {
+    position: static;
+  }
+  .review-case-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+  }
+  .review-workspace .score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .review-case-list,
+  .review-workspace .score-grid,
+  .review-workspace .two-column {
+    grid-template-columns: 1fr;
+  }
+}
