@@ -19,13 +19,53 @@ async function parseResponse(response) {
   throw new Error(message);
 }
 
+function withQuery(path, params = {}) {
+  const url = new URL(`${API_BASE_URL}${path}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      url.searchParams.set(key, value);
+    }
+  });
+  return url.toString();
+}
+
 export async function getHealth() {
   return parseResponse(await fetch(`${API_BASE_URL}/health`));
 }
 
-export async function processVendor({ legalName, files }) {
+export async function getConfig() {
+  return parseResponse(await fetch(`${API_BASE_URL}/api/v1/config`));
+}
+
+export async function getDashboard() {
+  return parseResponse(await fetch(`${API_BASE_URL}/api/v1/dashboard`));
+}
+
+export async function listVendors({ status = "", query = "" } = {}) {
+  return parseResponse(
+    await fetch(withQuery("/api/v1/vendors", { status, query })),
+  );
+}
+
+export async function extractDocuments(files) {
   const form = new FormData();
-  form.append("legal_name", legalName || "");
+  files.forEach((file) => form.append("files", file));
+
+  return parseResponse(
+    await fetch(`${API_BASE_URL}/api/v1/documents/extract`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
+export async function processVendor({ fields, files }) {
+  const form = new FormData();
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      form.append(key, String(value));
+    }
+  });
   files.forEach((file) => form.append("files", file));
 
   return parseResponse(
@@ -67,6 +107,15 @@ export async function reviewVendor(vendorId, body) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  );
+}
+
+export async function getAuditEvents({ query = "", eventType = "" } = {}) {
+  return parseResponse(
+    await fetch(withQuery("/api/v1/audit-events", {
+      query,
+      event_type: eventType,
+    })),
   );
 }
 
