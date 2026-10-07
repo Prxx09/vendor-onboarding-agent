@@ -1,3 +1,4 @@
+import asyncio
 import platform
 
 from app.core.config import get_settings
@@ -12,14 +13,16 @@ class WindowsOcrProvider(OcrProvider):
     """
     Uses the Windows.Media.Ocr WinRT API.
 
-    Imports are intentionally lazy so the FastAPI project can still be imported
-    on non-Windows machines. OCR itself requires Windows 10/11 and an installed
-    Windows OCR language pack.
+    Windows OcrEngine does not allow multiple RecognizeAsync operations to run
+    concurrently on the same engine instance, so recognition calls are
+    serialized with an asyncio lock. Native PDF extraction and Gemini work can
+    still run concurrently around the OCR step.
     """
 
     def __init__(self) -> None:
         self.language = (get_settings().OCR_LANGUAGE or "").strip() or None
         self._engine = None
+        self._recognize_lock = asyncio.Lock()
 
     def _get_engine(self):
         if platform.system() != "Windows":
@@ -80,9 +83,11 @@ class WindowsOcrProvider(OcrProvider):
 
         decoder = await BitmapDecoder.create_async(stream)
         bitmap = await decoder.get_software_bitmap_async()
-        result = await engine.recognize_async(bitmap)
 
-        # OcrResult.text avoids materializing the WinRT IVectorView<OcrLine>
-        # returned by result.lines, which would require the optional
-        # Windows.Foundation.Collections Python projection.
+        # A single Windows OcrEngine instance accepts one RecognizeAsync call at
+        # a time. Multiple vendor documents are processed concurrently by the
+        # agent, so serialize only this Windows OCR call.
+        async with self._recognize_lock:
+            result = await engine.recognize_async(bitmap)
+
         return (result.text or "").strip()

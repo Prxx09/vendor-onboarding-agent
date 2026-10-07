@@ -2,6 +2,10 @@
 
 Client-demo MVP for supplier onboarding focused on document understanding and vendor verification.
 
+> Windows OCR note: the agent may process several uploaded documents concurrently, but Windows.Media.Ocr permits only one RecognizeAsync operation per OcrEngine instance. The Windows OCR provider therefore serializes recognition calls internally while leaving the rest of the pipeline concurrent.
+
+Client-demo MVP for supplier onboarding focused on document understanding and vendor verification.
+
 The prototype intentionally excludes PO creation and procurement approvals. Its core job is:
 
 1. Accept vendor details and required documents.
