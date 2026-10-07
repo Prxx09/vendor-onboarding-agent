@@ -857,8 +857,10 @@ function CaseDetail({ vendorId, config, onBack }) {
         <div className="page-stack">
           <div className="metric-grid">
             <Metric label="Confidence" value={formatPercent(latest.confidence_score)} icon={BarChart3} />
+            <Metric label="Risk level" value={vendor.risk_level || "—"} icon={AlertTriangle} tone={vendor.risk_level === "HIGH" ? "danger" : vendor.risk_level === "MEDIUM" ? "warning" : "neutral"} />
             <Metric label="Category" value={vendor.category || "—"} icon={ClipboardList} />
             <Metric label="Region" value={vendor.region || "—"} icon={Building2} />
+            <Metric label="Last reviewer" value={vendor.last_reviewer || "—"} icon={UserCheck} />
             <Metric label="Last updated" value={formatDate(vendor.updated_at)} icon={History} />
           </div>
           {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Decision explanation</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
