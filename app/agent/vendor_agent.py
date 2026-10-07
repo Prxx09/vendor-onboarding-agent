@@ -42,6 +42,32 @@ REQUIRED_DOCUMENTS = {
     "bank_proof": "Bank Proof",
 }
 
+EXTRACTABLE_INTAKE_FIELDS = [
+    "legal_name",
+    "tax_id",
+    "pan",
+    "bank_account",
+    "ifsc",
+    "registered_address",
+    "contact_name",
+    "contact_email",
+    "contact_phone",
+    "categories",
+]
+
+EXTRACTION_FIELD_MAP = {
+    "legal_name": "legal_name",
+    "tax_id": "tax_id",
+    "pan": "pan",
+    "bank_account": "bank_account_number",
+    "ifsc": "ifsc_swift",
+    "registered_address": "registered_address",
+    "contact_name": "contact_name",
+    "contact_email": "contact_email",
+    "contact_phone": "contact_phone",
+    "categories": "vendor_category",
+}
+
 CHECK_SCORES = {
     "VERIFIED": 100.0,
     "REVIEW_REQUIRED": 50.0,
@@ -64,6 +90,18 @@ def _parse_date(value: str | None) -> date | None:
         return date.fromisoformat(value)
     except ValueError:
         return None
+
+
+def _extraction_coverage_score(extractions: list[DocumentExtraction]) -> float:
+    extracted: set[str] = set()
+    for item in extractions:
+        for intake_field, extraction_field in EXTRACTION_FIELD_MAP.items():
+            value = getattr(item, extraction_field, None)
+            if value is not None and str(value).strip():
+                extracted.add(intake_field)
+    if not EXTRACTABLE_INTAKE_FIELDS:
+        return 0.0
+    return round(len(extracted) / len(EXTRACTABLE_INTAKE_FIELDS) * 100.0, 1)
 
 
 def _threshold_percent() -> float | None:
@@ -203,8 +241,7 @@ class VendorVerificationAgent:
                     message=(
                         f"{structured.filename}: text extracted via "
                         f"{document_text.method} across {document_text.page_count} page(s); "
-                        f"classified as {structured.document_type} "
-                        f"({structured.confidence:.0%} confidence)."
+                        f"classified as {structured.document_type}."
                     ),
                 )
             )
@@ -468,17 +505,18 @@ class VendorVerificationAgent:
 
         extractions = state.get("extractions", [])
         if extractions:
-            extraction_score = (
-                sum(item.confidence for item in extractions) / len(extractions) * 100.0
+            extraction_score = _extraction_coverage_score(extractions)
+            extracted_count = round(
+                extraction_score / 100.0 * len(EXTRACTABLE_INTAKE_FIELDS)
             )
             scorecard.append(
                 ScorecardItem(
-                    name="Document extraction",
-                    score=round(extraction_score, 1),
+                    name="Document extraction completeness",
+                    score=extraction_score,
                     status="PASS" if extraction_score >= 80 else "REVIEW",
                     message=(
-                        f"Average classification/extraction confidence across "
-                        f"{len(extractions)} document(s)."
+                        f"{extracted_count} of {len(EXTRACTABLE_INTAKE_FIELDS)} "
+                        "extractable intake fields were populated from the submitted documents."
                     ),
                 )
             )
