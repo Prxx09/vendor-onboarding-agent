@@ -57,3 +57,11 @@ Configure those values in the backend root `.env`, not in frontend source.
 Run `sql/frontend_workflow_migration.sql` once before using the expanded
 case-management UI. It adds case metadata, scorecards, audit events and private
 document storage metadata/bucket support.
+
+
+## API base URL
+
+Set `VITE_API_BASE_URL=http://127.0.0.1:8000` in `frontend/.env`.
+When `VITE_API_BASE_URL` is not set during Vite development, the frontend now
+falls back to `http://127.0.0.1:8000` instead of the Vite origin. This prevents
+API requests from accidentally receiving `index.html` from the frontend dev server.

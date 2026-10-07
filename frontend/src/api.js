@@ -1,20 +1,39 @@
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
+
 const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || window.location.origin
+  configuredApiBase
+  || (import.meta.env.DEV ? "http://127.0.0.1:8000" : window.location.origin)
 ).replace(/\/$/, "");
 
 async function parseResponse(response) {
+  if (response.status === 204) return null;
+
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+
   if (response.ok) {
-    if (response.status === 204) return null;
+    if (!isJson) {
+      const preview = (await response.text()).slice(0, 120).replace(/\s+/g, " ");
+      throw new Error(
+        `Expected JSON from ${response.url}, but received ${contentType || "non-JSON content"}`
+        + (preview ? `: ${preview}` : ""),
+      );
+    }
     return response.json();
   }
 
   let message = `Request failed with status ${response.status}`;
-  try {
-    const payload = await response.json();
-    if (typeof payload?.detail === "string") message = payload.detail;
-    else if (payload?.detail) message = JSON.stringify(payload.detail);
-  } catch {
-    // Keep the generic HTTP error.
+  if (isJson) {
+    try {
+      const payload = await response.json();
+      if (typeof payload?.detail === "string") message = payload.detail;
+      else if (payload?.detail) message = JSON.stringify(payload.detail);
+    } catch {
+      // Keep the generic HTTP error.
+    }
+  } else {
+    const preview = (await response.text()).slice(0, 120).replace(/\s+/g, " ");
+    if (preview) message = `${message}: ${preview}`;
   }
   throw new Error(message);
 }
