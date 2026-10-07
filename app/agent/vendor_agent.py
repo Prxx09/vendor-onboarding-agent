@@ -1,14 +1,16 @@
 import asyncio
 from datetime import date
-from typing import TypedDict
+from typing import Any, TypedDict
 from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 from rapidfuzz.fuzz import token_set_ratio
 
+from app.core.config import get_settings
 from app.domain.models import (
     AgentEvent,
     DocumentExtraction,
+    ScorecardItem,
     VendorProcessResult,
     VerificationEvidence,
 )
@@ -21,6 +23,7 @@ from app.services.groq_extractor import GroqDocumentExtractor
 class AgentState(TypedDict, total=False):
     vendor_id: str
     submitted_legal_name: str
+    submitted_data: dict[str, Any]
     files: list[dict]
     extractions: list[DocumentExtraction]
     existing_extractions: list[DocumentExtraction]
@@ -39,6 +42,14 @@ REQUIRED_DOCUMENTS = {
     "bank_proof": "Bank Proof",
 }
 
+CHECK_SCORES = {
+    "VERIFIED": 100.0,
+    "REVIEW_REQUIRED": 50.0,
+    "MISMATCH": 0.0,
+    "NOT_FOUND": 0.0,
+    "ERROR": 0.0,
+}
+
 
 def _name_score(a: str | None, b: str | None) -> float:
     if not a or not b:
@@ -53,6 +64,13 @@ def _parse_date(value: str | None) -> date | None:
         return date.fromisoformat(value)
     except ValueError:
         return None
+
+
+def _threshold_percent() -> float | None:
+    configured = get_settings().AUTO_APPROVAL_THRESHOLD
+    if configured is None:
+        return None
+    return configured * 100.0 if configured <= 1 else configured
 
 
 class VendorVerificationAgent:
@@ -100,8 +118,13 @@ class VendorVerificationAgent:
         files: list[dict],
         vendor_id: str | None = None,
         existing_extractions: list[DocumentExtraction] | None = None,
+        submitted_data: dict[str, Any] | None = None,
     ) -> VendorProcessResult:
         previous = list(existing_extractions or [])
+        intake_data = dict(submitted_data or {})
+        if legal_name.strip():
+            intake_data["legal_name"] = legal_name.strip()
+
         is_resume = vendor_id is not None
         intake_message = (
             f"Resumed vendor with {len(previous)} existing document(s) and "
@@ -112,6 +135,7 @@ class VendorVerificationAgent:
         initial: AgentState = {
             "vendor_id": vendor_id or str(uuid4()),
             "submitted_legal_name": legal_name.strip(),
+            "submitted_data": intake_data,
             "files": files,
             "existing_extractions": previous,
             "events": [
@@ -122,6 +146,7 @@ class VendorVerificationAgent:
             ],
         }
         state = await self.graph.ainvoke(initial)
+        confidence_score, scorecard = self._score_state(state)
         return VendorProcessResult(
             vendor_id=state["vendor_id"],
             vendor_name=self._vendor_name(state),
@@ -132,6 +157,9 @@ class VendorVerificationAgent:
             checks=state.get("checks", []),
             reasons=state.get("reasons", []),
             events=state.get("events", []),
+            confidence_score=confidence_score,
+            scorecard=scorecard,
+            submitted_data=state.get("submitted_data", {}),
         )
 
     async def _extract_documents(self, state: AgentState) -> dict:
@@ -229,6 +257,9 @@ class VendorVerificationAgent:
         return "missing" if state.get("missing_documents") else "complete"
 
     def _vendor_name(self, state: AgentState) -> str:
+        submitted = state.get("submitted_data", {})
+        if submitted.get("legal_name"):
+            return str(submitted["legal_name"])
         if state.get("submitted_legal_name"):
             return state["submitted_legal_name"]
 
@@ -253,7 +284,14 @@ class VendorVerificationAgent:
         company = self._doc(state, "business_registration")
         tax = self._doc(state, "tax_certificate")
         bank = self._doc(state, "bank_proof")
+        submitted = state.get("submitted_data", {})
         vendor_name = self._vendor_name(state)
+
+        tax_id = submitted.get("tax_id") or (tax.tax_id if tax else None)
+        bank_account = submitted.get("bank_account") or (
+            bank.bank_account_number if bank else None
+        )
+        bank_ifsc = submitted.get("ifsc") or (bank.ifsc_swift if bank else None)
 
         checks: list[VerificationEvidence] = []
         tasks = []
@@ -269,23 +307,23 @@ class VendorVerificationAgent:
                 )
             )
 
-        if tax and tax.tax_id:
-            tasks.append(self.provider.verify_tax(tax.tax_id))
-            tasks.append(self.provider.check_duplicate_tax_id(tax.tax_id))
+        if tax_id:
+            tasks.append(self.provider.verify_tax(str(tax_id)))
+            tasks.append(self.provider.check_duplicate_tax_id(str(tax_id)))
         else:
             checks.append(
                 VerificationEvidence(
                     source="tax_registry",
                     status="NOT_FOUND",
-                    message="Tax ID could not be extracted.",
+                    message="Tax ID could not be extracted or submitted.",
                 )
             )
 
-        if bank and bank.bank_account_number:
+        if bank_account:
             tasks.append(
                 self.provider.verify_bank(
-                    bank.bank_account_number,
-                    bank.ifsc_swift,
+                    str(bank_account),
+                    str(bank_ifsc) if bank_ifsc else None,
                     vendor_name,
                 )
             )
@@ -294,7 +332,7 @@ class VendorVerificationAgent:
                 VerificationEvidence(
                     source="bank_account_registry",
                     status="NOT_FOUND",
-                    message="Bank account number could not be extracted.",
+                    message="Bank account number could not be extracted or submitted.",
                 )
             )
 
@@ -302,7 +340,7 @@ class VendorVerificationAgent:
             self.provider.verify_kyc(
                 vendor_name,
                 company.registration_number if company else None,
-                tax.tax_id if tax else None,
+                str(tax_id) if tax_id else None,
             )
         )
         tasks.append(self.provider.check_sanctions(vendor_name))
@@ -333,6 +371,7 @@ class VendorVerificationAgent:
     async def _cross_validate(self, state: AgentState) -> dict:
         checks = list(state.get("checks", []))
         extractions = state.get("extractions", [])
+        submitted = state.get("submitted_data", {})
         vendor_name = self._vendor_name(state)
 
         for item in extractions:
@@ -356,6 +395,52 @@ class VendorVerificationAgent:
                         )
                     )
 
+        tax = self._doc(state, "tax_certificate")
+        bank = self._doc(state, "bank_proof")
+        submitted_pairs = [
+            ("tax_id", submitted.get("tax_id"), tax.tax_id if tax else None, "tax certificate"),
+            (
+                "bank_account",
+                submitted.get("bank_account"),
+                bank.bank_account_number if bank else None,
+                "bank proof",
+            ),
+            ("ifsc", submitted.get("ifsc"), bank.ifsc_swift if bank else None, "bank proof"),
+        ]
+        for field, submitted_value, document_value, source_label in submitted_pairs:
+            if submitted_value and document_value and str(submitted_value).strip() != str(document_value).strip():
+                checks.append(
+                    VerificationEvidence(
+                        source=f"submitted_vs_document:{field}",
+                        status="MISMATCH",
+                        message=(
+                            f"Submitted {field.replace('_', ' ')} does not match the "
+                            f"value extracted from the {source_label}."
+                        ),
+                        data={
+                            "submitted_value": submitted_value,
+                            "document_value": document_value,
+                        },
+                    )
+                )
+
+        if submitted.get("compliance_confirmed") is False:
+            checks.append(
+                VerificationEvidence(
+                    source="compliance_confirmation",
+                    status="REVIEW_REQUIRED",
+                    message="Vendor compliance was not confirmed on the submitted intake form.",
+                )
+            )
+        elif submitted.get("compliance_confirmed") is True:
+            checks.append(
+                VerificationEvidence(
+                    source="compliance_confirmation",
+                    status="VERIFIED",
+                    message="Vendor compliance confirmation was provided.",
+                )
+            )
+
         company = self._doc(state, "business_registration")
         if company:
             expiry = _parse_date(company.expiry_date)
@@ -373,10 +458,50 @@ class VendorVerificationAgent:
         events.append(
             AgentEvent(
                 step="cross_document_validation",
-                message="Cross-document consistency checks completed.",
+                message="Cross-document and submitted-data consistency checks completed.",
             )
         )
         return {"checks": checks, "events": events}
+
+    def _score_state(self, state: AgentState) -> tuple[float | None, list[ScorecardItem]]:
+        scorecard: list[ScorecardItem] = []
+
+        extractions = state.get("extractions", [])
+        if extractions:
+            extraction_score = (
+                sum(item.confidence for item in extractions) / len(extractions) * 100.0
+            )
+            scorecard.append(
+                ScorecardItem(
+                    name="Document extraction",
+                    score=round(extraction_score, 1),
+                    status="PASS" if extraction_score >= 80 else "REVIEW",
+                    message=(
+                        f"Average classification/extraction confidence across "
+                        f"{len(extractions)} document(s)."
+                    ),
+                )
+            )
+
+        for check in state.get("checks", []):
+            score = CHECK_SCORES.get(check.status, 0.0)
+            status = "PASS" if check.status == "VERIFIED" else (
+                "REVIEW" if check.status == "REVIEW_REQUIRED" else "FAIL"
+            )
+            scorecard.append(
+                ScorecardItem(
+                    name=check.source.replace("_", " ").replace(":", " / "),
+                    score=score,
+                    status=status,
+                    message=check.message,
+                )
+            )
+
+        if not scorecard:
+            return None, []
+
+        overall = sum(item.score for item in scorecard) / len(scorecard)
+        return round(overall, 1), scorecard
 
     async def _decide(self, state: AgentState) -> dict:
         checks = state.get("checks", [])
@@ -388,6 +513,8 @@ class VendorVerificationAgent:
 
         events = list(state.get("events", []))
         reasons = list(state.get("reasons", []))
+        confidence_score, _ = self._score_state(state)
+        threshold = _threshold_percent()
 
         if problematic:
             reasons.extend(check.message for check in problematic)
@@ -395,6 +522,29 @@ class VendorVerificationAgent:
                 AgentEvent(
                     step="decision",
                     message="Issues detected. Sent to human review with reject recommendation.",
+                )
+            )
+            return {
+                "overall_status": "REVIEW_REQUIRED",
+                "recommendation": "REJECT",
+                "reasons": list(dict.fromkeys(reasons)),
+                "events": events,
+            }
+
+        if (
+            threshold is not None
+            and confidence_score is not None
+            and confidence_score < threshold
+        ):
+            reason = (
+                f"Overall confidence score {confidence_score:.1f}% is below the "
+                f"configured auto-approval threshold of {threshold:.1f}%."
+            )
+            reasons.append(reason)
+            events.append(
+                AgentEvent(
+                    step="decision",
+                    message="Confidence is below the configured threshold; sent to human review.",
                 )
             )
             return {
@@ -418,6 +568,7 @@ class VendorVerificationAgent:
         }
 
     async def _persist(self, state: AgentState) -> dict:
+        confidence_score, scorecard = self._score_state(state)
         result = VendorProcessResult(
             vendor_id=state["vendor_id"],
             vendor_name=self._vendor_name(state),
@@ -428,10 +579,15 @@ class VendorVerificationAgent:
             checks=state.get("checks", []),
             reasons=state.get("reasons", []),
             events=state.get("events", []),
+            confidence_score=confidence_score,
+            scorecard=scorecard,
+            submitted_data=state.get("submitted_data", {}),
         )
         await self.repository.save_result(
             result,
             documents=state.get("new_extractions", result.extractions),
+            file_payloads=state.get("files", []),
+            submitted_data=state.get("submitted_data", {}),
         )
         events = list(state.get("events", []))
         events.append(
