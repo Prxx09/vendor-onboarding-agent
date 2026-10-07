@@ -24,6 +24,19 @@ WORKFLOW_STAGES = [
     {"key": "submit", "label": "Submit"},
 ]
 
+EXTRACTABLE_INTAKE_FIELDS = [
+    "legal_name",
+    "tax_id",
+    "pan",
+    "bank_account",
+    "ifsc",
+    "registered_address",
+    "contact_name",
+    "contact_email",
+    "contact_phone",
+    "categories",
+]
+
 REQUIRED_SUPABASE_TABLES = [
     "verification_vendors",
     "verification_vendor_documents",
@@ -247,6 +260,7 @@ async def frontend_config():
         "intake": {
             "regions": _csv_values(settings.VENDOR_REGIONS),
             "categories": _csv_values(settings.VENDOR_CATEGORIES),
+            "extractable_fields": EXTRACTABLE_INTAKE_FIELDS,
             "validation_patterns": {
                 key: value
                 for key, value in {
@@ -434,23 +448,53 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         for doc_type in REQUIRED_DOCUMENTS
         if doc_type not in present_document_types
     ]
+    extracted_input_fields = [
+        field for field in EXTRACTABLE_INTAKE_FIELDS
+        if suggestions.get(field) and suggestions[field].get("value")
+    ]
     overall_confidence = (
         round(
-            sum(output.confidence for output in extractions)
-            / len(extractions)
-            * 100.0,
+            len(extracted_input_fields) / len(EXTRACTABLE_INTAKE_FIELDS) * 100.0,
             1,
         )
-        if extractions
+        if EXTRACTABLE_INTAKE_FIELDS
         else None
     )
 
+    # Per-document extraction completeness is also deterministic: how many
+    # intake fields this document contributed, divided by all extractable
+    # intake fields. We keep model classification confidence internal.
+    contribution_counts: dict[str, int] = {}
+    for field in extracted_input_fields:
+        source = str(suggestions[field].get("source") or "")
+        if source:
+            contribution_counts[source] = contribution_counts.get(source, 0) + 1
+
+    for document in document_results:
+        contribution = contribution_counts.get(str(document.get("filename") or ""), 0)
+        document["extraction_confidence"] = round(
+            contribution / len(EXTRACTABLE_INTAKE_FIELDS) * 100.0,
+            1,
+        )
+        document.pop("field_confidence", None)
+
+    public_suggestions = {
+        field: {
+            key: value
+            for key, value in meta.items()
+            if key != "confidence"
+        }
+        for field, meta in suggestions.items()
+    }
+
     return {
         "documents": document_results,
-        "field_suggestions": suggestions,
+        "field_suggestions": public_suggestions,
         "missing_required_fields": missing_required_fields,
         "missing_fields": missing_required_fields,
         "overall_extraction_confidence": overall_confidence,
+        "extracted_field_count": len(extracted_input_fields),
+        "extractable_field_count": len(EXTRACTABLE_INTAKE_FIELDS),
         "document_coverage": {
             "required": list(REQUIRED_DOCUMENTS.values()),
             "present": [
