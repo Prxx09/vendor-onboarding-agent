@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     )
     VENDOR_REGIONS: str = ""
     VENDOR_CATEGORIES: str = ""
+    TAX_ID_PATTERN: str = ""
+    PAN_PATTERN: str = ""
+    IFSC_PATTERN: str = ""
     DOCUMENT_STORAGE_BUCKET: str = "verification-documents"
 
     VERIFICATION_PROVIDER_MODE: str = "supabase"
