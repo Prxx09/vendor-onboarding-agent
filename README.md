@@ -10,7 +10,7 @@ The prototype intentionally excludes PO creation and procurement approvals. Its 
 
 1. Accept vendor details and required documents.
 2. Read documents locally using the PDF text layer or Windows built-in OCR.
-3. Send only extracted text to Gemini for document classification and structured field extraction.
+3. Send only extracted text to Groq for document classification and structured field extraction.
 4. Verify extracted company, tax, bank, KYC/KYB and sanctions data against preset Supabase registries.
 5. Cross-check the documents against each other.
 6. Return APPROVED, ACTION_REQUIRED, or REVIEW_REQUIRED.
@@ -33,11 +33,11 @@ PDF / image
                    raw text
                         |
                         v
-                     Gemini
+                     Groq
              classification + JSON
 ~~~
 
-Gemini does not receive the image/PDF in the default MVP path. It receives the text already extracted locally. This reduces vision usage and makes OCR replaceable independently from the LLM.
+Groq does not receive the image/PDF in the default MVP path. It receives the text already extracted locally. This reduces vision usage and makes OCR replaceable independently from the LLM.
 
 For mixed PDFs, the processor works page-by-page: pages with a usable text layer use native text, while scanned pages fall back to Windows OCR.
 
@@ -55,7 +55,7 @@ OCR_LANGUAGE=en-US
 
 If no language is specified, the provider uses the Windows user-profile OCR languages.
 
-For a future Linux/cloud deployment, replace the OCR provider behind app/ocr/base.py; the agent and Gemini structuring layer do not need to change.
+For a future Linux/cloud deployment, replace the OCR provider behind app/ocr/base.py; the agent and Groq structuring layer do not need to change.
 
 ## Required documents for the MVP
 
@@ -82,13 +82,19 @@ VerificationProvider interface
 
 When official services become available, set VERIFICATION_PROVIDER_MODE=http and configure the endpoint environment variables. If a provider returns a different JSON shape, only the adapter in app/providers/http_provider.py should need mapping changes.
 
-## Gemini
+## Groq
 
-Gemini is used only after local text extraction. It classifies the document and converts OCR/native PDF text into the structured DocumentExtraction schema.
+Groq is used only after local text extraction. It classifies the document and converts OCR/native PDF text into the structured DocumentExtraction schema.
 
 Registry lookup, duplicate checks, name matching, expiry checks and final routing are deterministic application logic around the LLM.
 
-The model is configurable with GEMINI_MODEL.
+The model is configurable with GROQ_MODEL.
+
+## Groq
+
+Groq is used after local OCR/native PDF text extraction. The default model is `openai/gpt-oss-20b`. Add `GROQ_API_KEY` to `.env`; documents themselves are not uploaded to the LLM, only extracted text.
+
+Transient Groq connection, rate-limit and 5xx failures are retried up to `GROQ_MAX_RETRIES` times.
 
 ## Setup
 
@@ -100,7 +106,7 @@ The model is configurable with GEMINI_MODEL.
 pip install -r requirements.txt
 ~~~
 
-4. Copy .env.example to .env and add your rotated Supabase service-role key and Gemini API key.
+4. Copy .env.example to .env and add your rotated Supabase service-role key and Groq API key.
 5. Run sql/schema.sql in Supabase SQL Editor.
 6. Run sql/seed_demo.sql to load synthetic verification records.
 7. Start the API:

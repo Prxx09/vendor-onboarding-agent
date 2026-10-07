@@ -9,8 +9,10 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE_KEY: str
 
-    GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-3.8-flash"
+    # Groq structures the text extracted locally by Windows OCR / PyMuPDF.
+    GROQ_API_KEY: str
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
+    GROQ_MAX_RETRIES: int = 3
 
     # Local document extraction.
     OCR_PROVIDER: str = "windows"

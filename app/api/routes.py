@@ -6,7 +6,7 @@ from app.ocr.factory import get_ocr_provider
 from app.providers.factory import get_verification_provider
 from app.repositories.vendor_repository import VendorRepository
 from app.services.document_processor import DocumentProcessor
-from app.services.gemini_extractor import GeminiDocumentExtractor
+from app.services.groq_extractor import GroqDocumentExtractor
 
 
 router = APIRouter(prefix="/api/v1", tags=["vendor-onboarding"])
@@ -19,7 +19,7 @@ def _repository() -> VendorRepository:
 def _agent() -> VendorVerificationAgent:
     return VendorVerificationAgent(
         document_processor=DocumentProcessor(get_ocr_provider()),
-        extractor=GeminiDocumentExtractor(),
+        extractor=GroqDocumentExtractor(),
         provider=get_verification_provider(),
         repository=_repository(),
     )

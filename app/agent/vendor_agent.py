@@ -15,7 +15,7 @@ from app.domain.models import (
 from app.providers.base import VerificationProvider
 from app.repositories.vendor_repository import VendorRepository
 from app.services.document_processor import DocumentProcessor
-from app.services.gemini_extractor import GeminiDocumentExtractor
+from app.services.groq_extractor import GroqDocumentExtractor
 
 
 class AgentState(TypedDict, total=False):
@@ -57,7 +57,7 @@ class VendorVerificationAgent:
     def __init__(
         self,
         document_processor: DocumentProcessor,
-        extractor: GeminiDocumentExtractor,
+        extractor: GroqDocumentExtractor,
         provider: VerificationProvider,
         repository: VendorRepository,
     ) -> None:
