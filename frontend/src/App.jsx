@@ -40,6 +40,17 @@ import {
   uploadVendorDocuments,
 } from "./api";
 
+const AUTO_EXTRACT_FIELDS = [
+  "legal_name",
+  "tax_id",
+  "pan",
+  "bank_account",
+  "ifsc",
+  "registered_address",
+  "contact_email",
+  "category",
+];
+
 const statusTone = {
   APPROVED: "success",
   VERIFIED: "success",
@@ -583,6 +594,13 @@ function NewVendorView({ config, notify }) {
     if (!files.length) {
       setExtraction(null);
       setFieldMeta({});
+      setFields((current) => {
+        const next = { ...current };
+        AUTO_EXTRACT_FIELDS.forEach((field) => {
+          if (!manualEdits.has(field)) next[field] = "";
+        });
+        return next;
+      });
       return;
     }
 
@@ -592,12 +610,14 @@ function NewVendorView({ config, notify }) {
     extractDocuments(files)
       .then((payload) => {
         if (!active) return;
+        const suggestions = payload.field_suggestions || {};
         setExtraction(payload);
-        setFieldMeta(payload.field_suggestions || {});
+        setFieldMeta(suggestions);
         setFields((current) => {
           const next = { ...current };
-          Object.entries(payload.field_suggestions || {}).forEach(([field, meta]) => {
-            if (!manualEdits.has(field) && !next[field]) next[field] = meta.value ?? "";
+          AUTO_EXTRACT_FIELDS.forEach((field) => {
+            if (manualEdits.has(field)) return;
+            next[field] = suggestions[field]?.value ?? "";
           });
           return next;
         });
@@ -610,6 +630,17 @@ function NewVendorView({ config, notify }) {
   const updateField = (name, value) => {
     setFields((current) => ({ ...current, [name]: value }));
     setManualEdits((current) => new Set([...current, name]));
+    if (AUTO_EXTRACT_FIELDS.includes(name)) {
+      setFieldMeta((current) => ({
+        ...current,
+        [name]: {
+          value,
+          confidence: 1,
+          source: "Manual entry",
+          extraction_method: "manual_override",
+        },
+      }));
+    }
     setErrors((current) => ({ ...current, [name]: "" }));
   };
 
