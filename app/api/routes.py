@@ -133,6 +133,15 @@ async def frontend_config():
         "intake": {
             "regions": _csv_values(settings.VENDOR_REGIONS),
             "categories": _csv_values(settings.VENDOR_CATEGORIES),
+            "validation_patterns": {
+                key: value
+                for key, value in {
+                    "tax_id": settings.TAX_ID_PATTERN,
+                    "pan": settings.PAN_PATTERN,
+                    "ifsc": settings.IFSC_PATTERN,
+                }.items()
+                if value
+            },
         },
     }
 
