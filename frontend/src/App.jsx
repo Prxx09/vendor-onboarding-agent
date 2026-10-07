@@ -71,13 +71,19 @@ const statusTone = {
 
 const statusLabel = {
   APPROVED: "Approved",
-  ACTION_REQUIRED: "Needs information",
-  REVIEW_REQUIRED: "Needs review",
+  ACTION_REQUIRED: "Needs Information",
+  REVIEW_REQUIRED: "Needs Review",
   REJECTED: "Rejected",
 };
 
+function titleCase(value) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function formatStatus(value) {
-  return statusLabel[value] || String(value || "Unknown").replaceAll("_", " ");
+  return statusLabel[value] || titleCase(value || "Unknown");
 }
 
 function formatDate(value) {
@@ -138,7 +144,7 @@ function CheckList({ checks = [] }) {
     return (
       <EmptyState
         title="No verification checks"
-        copy="Verification checks appear after the required document set is complete."
+        copy="Verification Checks appear after the required document set is complete."
         icon={SearchCheck}
       />
     );
@@ -182,6 +188,87 @@ function Timeline({ events = [] }) {
   );
 }
 
+function AuditLifecycle({ events = [] }) {
+  if (!events.length) {
+    return <EmptyState title="No History Available" copy="Case lifecycle events will appear here." icon={History} />;
+  }
+
+  const sorted = [...events].sort((a, b) => {
+    const timeDiff = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return Number(a.details?.stage_order || 99) - Number(b.details?.stage_order || 99);
+  });
+
+  const detailFor = (event) => {
+    const details = event.details || {};
+    if (event.event_type === "DOCUMENT_SUBMITTED") {
+      return details.message || "Vendor documents were received for processing.";
+    }
+    if (event.event_type === "AI_EXTRACTION_COMPLETE") {
+      const extracted = Number(details.documents_extracted || 0);
+      const failed = Number(details.documents_failed || 0);
+      return failed
+        ? `${extracted} document(s) extracted successfully; ${failed} document(s) need attention.`
+        : `${extracted} document(s) were read and structured by AI.`;
+    }
+    if (event.event_type === "VERIFICATION_COMPLETE") {
+      return `${Number(details.check_count || 0)} verification check(s) completed against configured sources.`;
+    }
+    if (event.event_type === "COMPLETENESS_CHECK_COMPLETE") {
+      const missing = details.missing_documents || [];
+      return missing.length
+        ? `Waiting For: ${missing.join(", ")}`
+        : "Document completeness check completed.";
+    }
+    if (event.event_type === "STATUS_UPDATE") {
+      return details.recommendation
+        ? `Agent Recommendation: ${formatStatus(details.recommendation)}`
+        : "Case status updated.";
+    }
+    if (event.event_type === "REVIEW_DECISION") {
+      return details.comment
+        ? `Reviewer Note: ${details.comment}`
+        : "Human Review decision recorded.";
+    }
+    return event.action || "Case activity recorded.";
+  };
+
+  const IconFor = ({ type }) => {
+    if (type === "DOCUMENT_SUBMITTED") return <UploadCloud size={17} />;
+    if (type === "AI_EXTRACTION_COMPLETE") return <FileSearch size={17} />;
+    if (type === "VERIFICATION_COMPLETE" || type === "COMPLETENESS_CHECK_COMPLETE") return <SearchCheck size={17} />;
+    if (type === "REVIEW_DECISION") return <UserCheck size={17} />;
+    if (type === "STATUS_UPDATE") return <ShieldCheck size={17} />;
+    return <CheckCircle2 size={17} />;
+  };
+
+  return (
+    <div className="order-history">
+      {sorted.map((event, index) => {
+        const current = index === sorted.length - 1;
+        return (
+          <div className={`order-history-step ${current ? "current" : "complete"}`} key={event.id || `${event.event_type}-${index}`}>
+            <div className="order-history-rail">
+              <div className="order-history-dot"><IconFor type={event.event_type} /></div>
+              {index < sorted.length - 1 && <div className="order-history-line" />}
+            </div>
+            <div className="order-history-content">
+              <div className="order-history-head">
+                <strong>{titleCase(event.action || event.event_type)}</strong>
+                {event.event_type === "STATUS_UPDATE" && event.details?.status
+                  ? <StatusPill value={event.details.status} />
+                  : null}
+              </div>
+              <p>{detailFor(event)}</p>
+              <span>{event.actor || "System"} · {formatDate(event.created_at)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Scorecard({ items = [], threshold = null, overall = null }) {
   if (!items.length) {
     return <EmptyState title="No scorecard available" copy="A scorecard is generated after verification." icon={BarChart3} />;
@@ -194,7 +281,7 @@ function Scorecard({ items = [], threshold = null, overall = null }) {
           <strong>{formatPercent(overall)}</strong>
         </div>
         <div>
-          <span>Auto-approval threshold</span>
+          <span>Auto-Approval Threshold</span>
           <strong>{threshold === null || threshold === undefined ? "Not configured" : formatPercent(threshold)}</strong>
         </div>
         <div>
@@ -294,7 +381,7 @@ function MissingDocumentUpload({ result, config, onUpdated }) {
 
   return (
     <div className="panel missing-upload">
-      <div className="panel-title"><UploadCloud size={19} /> Supply missing evidence</div>
+      <div className="panel-title"><UploadCloud size={19} /> Supply Missing Evidence</div>
       <div className="missing-upload-body">
         <p>Required: <strong>{result.missing_documents.join(", ")}</strong></p>
         <input type="file" multiple onChange={(e) => setFiles(validate(e.target.files))} />
@@ -318,30 +405,30 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
           {result.overall_status === "APPROVED" ? <ShieldCheck size={30} /> : <CircleAlert size={30} />}
         </div>
         <div className="result-hero-copy">
-          <div className="eyebrow">Verification complete</div>
+          <div className="eyebrow">Verification Complete</div>
           <h2>{result.vendor_name}</h2>
           <div className="pill-row">
             <StatusPill value={result.overall_status} />
-            <span className="recommendation">Agent recommendation: <strong>{formatStatus(result.recommendation)}</strong></span>
+            <span className="recommendation">Agent Recommendation: <strong>{formatStatus(result.recommendation)}</strong></span>
           </div>
         </div>
         <button className="ghost-button" onClick={onReset}>Start new intake</button>
       </div>
 
       <div className="metric-grid">
-        <Metric label="Documents read" value={result.extractions?.length || 0} icon={FileCheck2} />
-        <Metric label="Checks verified" value={verified} icon={CheckCircle2} tone="success" />
-        <Metric label="Checks flagged" value={flagged} icon={AlertTriangle} tone={flagged ? "danger" : "neutral"} />
+        <Metric label="Documents Read" value={result.extractions?.length || 0} icon={FileCheck2} />
+        <Metric label="Checks Verified" value={verified} icon={CheckCircle2} tone="success" />
+        <Metric label="Checks Flagged" value={flagged} icon={AlertTriangle} tone={flagged ? "danger" : "neutral"} />
         <Metric label="Confidence" value={formatPercent(result.confidence_score)} icon={BarChart3} />
       </div>
 
       {result.missing_documents?.length > 0 && (
-        <div className="callout warning"><AlertTriangle size={20} /><div><strong>Additional information required</strong><p>{result.missing_documents.join(", ")}</p></div></div>
+        <div className="callout warning"><AlertTriangle size={20} /><div><strong>Additional Information Required</strong><p>{result.missing_documents.join(", ")}</p></div></div>
       )}
 
       {result.reasons?.length > 0 && result.overall_status !== "APPROVED" && (
         <div className="panel">
-          <div className="panel-title"><AlertTriangle size={19} /> Decision explanation</div>
+          <div className="panel-title"><AlertTriangle size={19} /> Decision Explanation</div>
           <ul className="reason-list">{result.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
         </div>
       )}
@@ -351,8 +438,8 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
       )}
 
       <div className="two-column">
-        <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Verification checks</div><CheckList checks={result.checks} /></div>
-        <div className="panel"><div className="panel-title"><Activity size={19} /> Agent activity</div><Timeline events={result.events} /></div>
+        <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Verification Checks</div><CheckList checks={result.checks} /></div>
+        <div className="panel"><div className="panel-title"><Activity size={19} /> Agent Activity</div><Timeline events={result.events} /></div>
       </div>
 
       <div className="panel">
@@ -365,7 +452,7 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
       </div>
 
       <div className="panel">
-        <div className="panel-title"><FileText size={19} /> Extracted document data</div>
+        <div className="panel-title"><FileText size={19} /> Extracted Document Data</div>
         <div className="documents-grid">{result.extractions?.map((item, index) => <ExtractionCard key={`${item.filename}-${index}`} item={item} />)}</div>
       </div>
     </section>
@@ -397,27 +484,27 @@ function DashboardView({ onOpenCase }) {
   return (
     <section className="page-stack">
       <div className="section-heading">
-        <div><div className="eyebrow">Operations</div><h1>Vendor onboarding dashboard</h1><p>Live metrics from the verification backend and Supabase case records.</p></div>
+        <div><div className="eyebrow">Operations</div><h1>Vendor Onboarding Dashboard</h1><p>Live metrics from the verification backend and Supabase case records.</p></div>
         <button className="ghost-button" onClick={load} disabled={busy}><RefreshCw className={busy ? "spin" : ""} size={17} /> Refresh</button>
       </div>
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
       {busy && !data ? <div className="loading-card"><RefreshCw className="spin" /> Loading dashboard…</div> : (
         <>
           <div className="metric-grid dashboard-metrics">
-            <Metric label="Total vendor cases" value={data?.total_cases} icon={ClipboardList} />
-            <Metric label="Approved vendors" value={data?.approved_cases} icon={CheckCircle2} tone="success" />
-            <Metric label="Needs human review" value={data?.review_required_cases} icon={UserCheck} tone="danger" />
-            <Metric label="Average confidence" value={formatPercent(data?.average_confidence_score)} icon={BarChart3} />
-            <Metric label="Approval rate" value={formatPercent(data?.approval_rate)} icon={ShieldCheck} tone="success" />
+            <Metric label="Total Vendor Cases" value={data?.total_cases} icon={ClipboardList} />
+            <Metric label="Approved Vendors" value={data?.approved_cases} icon={CheckCircle2} tone="success" />
+            <Metric label="Needs Human Review" value={data?.review_required_cases} icon={UserCheck} tone="danger" />
+            <Metric label="Average Confidence" value={formatPercent(data?.average_confidence_score)} icon={BarChart3} />
+            <Metric label="Approval Rate" value={formatPercent(data?.approval_rate)} icon={ShieldCheck} tone="success" />
             <Metric
-              label="Auto-approval threshold"
+              label="Auto-Approval Threshold"
               value={data?.auto_approval_threshold === null || data?.auto_approval_threshold === undefined ? "Not configured" : formatPercent(data.auto_approval_threshold)}
               icon={SearchCheck}
             />
           </div>
           <div className="dashboard-meta">Recently updated: <strong>{formatDate(data?.recently_updated_at)}</strong></div>
           <div className="panel">
-            <div className="panel-title"><History size={19} /> Recently updated cases</div>
+            <div className="panel-title"><History size={19} /> Recently Updated Cases</div>
             {recent.length ? <CaseTable rows={recent} onOpen={onOpenCase} /> : <EmptyState title="No cases yet" copy="Submitted vendor cases will appear here." icon={ClipboardList} />}
           </div>
         </>
@@ -479,7 +566,7 @@ function CasesView({ initialCaseId = null, config }) {
 
   return (
     <section className="page-stack">
-      <div className="section-heading"><div><div className="eyebrow">Case management</div><h1>Vendor cases</h1><p>Search, filter and inspect every submitted verification case.</p></div></div>
+      <div className="section-heading"><div><div className="eyebrow">Case Management</div><h1>Vendor Cases</h1><p>Search, filter and inspect every submitted verification case.</p></div></div>
       <div className="toolbar panel">
         <div className="search-field"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search vendor name or case ID" /></div>
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -738,7 +825,7 @@ function NewVendorView({ config, notify }) {
   return (
     <section className="page-stack">
       <div className="section-heading">
-        <div><div className="eyebrow">New vendor intake</div><h1>Capture, extract and verify vendor evidence.</h1><p>Documents are OCR'd first, then structured by Groq and verified against configured backend sources.</p></div>
+        <div><div className="eyebrow">New Vendor Intake</div><h1>Capture, extract and verify vendor evidence.</h1><p>Documents are OCR'd first, then structured by Groq and verified against configured backend sources.</p></div>
         <button className="ghost-button" onClick={reset}><RefreshCw size={16} /> Reset intake</button>
       </div>
 
@@ -802,7 +889,7 @@ function NewVendorView({ config, notify }) {
         </div>
 
         <form className="panel intake-form" onSubmit={submit}>
-          <div className="panel-title"><Building2 size={19} /> Vendor information</div>
+          <div className="panel-title"><Building2 size={19} /> Vendor Information</div>
           <div className="form-grid">
             {renderInput("legal_name", "Legal vendor name")}
             {renderInput("tax_id", "Tax ID / GSTIN")}
@@ -886,7 +973,7 @@ function CaseDetail({ vendorId, config, onBack }) {
       <div className={`result-hero ${statusTone[vendor.status] || "neutral"}`}>
         <div className="result-hero-icon"><Building2 size={30} /></div>
         <div className="result-hero-copy">
-          <div className="eyebrow">Vendor case</div>
+          <div className="eyebrow">Vendor Case</div>
           <h2>{vendor.legal_name}</h2>
           <div className="pill-row"><StatusPill value={vendor.status} /><span className="recommendation mono">{vendor.id}</span></div>
         </div>
@@ -894,23 +981,23 @@ function CaseDetail({ vendorId, config, onBack }) {
       </div>
 
       <div className="detail-tabs">
-        {tabs.map((value) => <button className={tab === value ? "active" : ""} key={value} onClick={() => setTab(value)}>{value === "submission" ? "Original submission" : value}</button>)}
+        {tabs.map((value) => <button className={tab === value ? "active" : ""} key={value} onClick={() => setTab(value)}>{value === "submission" ? "Original Submission" : value}</button>)}
       </div>
 
       {tab === "overview" && (
         <div className="page-stack">
           <div className="metric-grid">
             <Metric label="Confidence" value={formatPercent(latest.confidence_score)} icon={BarChart3} />
-            <Metric label="Risk level" value={vendor.risk_level || "—"} icon={AlertTriangle} tone={vendor.risk_level === "HIGH" ? "danger" : vendor.risk_level === "MEDIUM" ? "warning" : "neutral"} />
+            <Metric label="Risk Level" value={vendor.risk_level || "—"} icon={AlertTriangle} tone={vendor.risk_level === "HIGH" ? "danger" : vendor.risk_level === "MEDIUM" ? "warning" : "neutral"} />
             <Metric label="Category" value={vendor.category || "—"} icon={ClipboardList} />
             <Metric label="Region" value={vendor.region || "—"} icon={Building2} />
-            <Metric label="Last reviewer" value={vendor.last_reviewer || "—"} icon={UserCheck} />
-            <Metric label="Last updated" value={formatDate(vendor.updated_at)} icon={History} />
+            <Metric label="Last Reviewer" value={vendor.last_reviewer || "—"} icon={UserCheck} />
+            <Metric label="Last Updated" value={formatDate(vendor.updated_at)} icon={History} />
           </div>
-          {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Decision explanation</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
+          {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Decision Explanation</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
           <div className="two-column">
-            <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation checks</div><CheckList checks={latest.checks || []} /></div>
-            <div className="panel"><div className="panel-title"><Activity size={19} /> Latest agent run</div><Timeline events={latest.events || []} /></div>
+            <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation Checks</div><CheckList checks={latest.checks || []} /></div>
+            <div className="panel"><div className="panel-title"><Activity size={19} /> Latest Agent Run</div><Timeline events={latest.events || []} /></div>
           </div>
           <div className="panel"><div className="panel-title"><FileText size={19} /> Documents</div><DocumentList documents={detail.documents} /></div>
         </div>
@@ -919,31 +1006,25 @@ function CaseDetail({ vendorId, config, onBack }) {
       {tab === "submission" && (
         <div className="two-column">
           <div className="panel">
-            <div className="panel-title"><Building2 size={19} /> Submitted form values</div>
+            <div className="panel-title"><Building2 size={19} /> Submitted Form Values</div>
             <dl className="submission-grid">
               {Object.keys(submitted).length ? Object.entries(submitted).map(([key, value]) => (
                 <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{typeof value === "boolean" ? (value ? "Yes" : "No") : String(value || "—")}</dd></div>
               )) : <EmptyState title="No submitted form metadata" copy="This case predates structured intake metadata." icon={ClipboardList} />}
             </dl>
           </div>
-          <div className="panel"><div className="panel-title"><FileText size={19} /> Attached documents</div><DocumentList documents={detail.documents} /></div>
+          <div className="panel"><div className="panel-title"><FileText size={19} /> Attached Documents</div><DocumentList documents={detail.documents} /></div>
         </div>
       )}
 
       {tab === "scorecard" && (
-        <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Verification scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
+        <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Verification Scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
       )}
 
       {tab === "history" && (
         <div className="panel">
-          <div className="panel-title"><History size={19} /> Complete case history</div>
-          {detail.audit_events?.length ? (
-            <div className="audit-list">
-              {detail.audit_events.map((event) => (
-                <div className="audit-row" key={event.id}><div><strong>{event.action}</strong><span>{event.actor || "System"} · {formatDate(event.created_at)}</span></div><StatusPill value={event.event_type} /></div>
-              ))}
-            </div>
-          ) : <EmptyState title="No audit events available" copy="Audit events will appear after the case-management migration is applied." icon={History} />}
+          <div className="panel-title"><History size={19} /> Complete Case History</div>
+          <AuditLifecycle events={detail.audit_events || []} />
         </div>
       )}
     </section>
@@ -978,14 +1059,14 @@ function ReviewCase({ vendorId, config, onCompleted, notify }) {
       return;
     }
     if ((decision === "REJECT" || decision === "REQUEST_INFORMATION") && !comment.trim()) {
-      setError("Reviewer notes are required for rejection and information requests.");
+      setError("Reviewer Notes are required for rejection and information requests.");
       return;
     }
     setReviewBusy(true);
     setError("");
     try {
       await reviewVendor(vendorId, { decision, reviewer: reviewer.trim(), comment: comment.trim() });
-      notify({ message: "Human review decision saved.", tone: "success" });
+      notify({ message: "Human Review decision saved.", tone: "success" });
       await onCompleted();
     } catch (err) {
       setError(err.message);
@@ -1003,19 +1084,19 @@ function ReviewCase({ vendorId, config, onCompleted, notify }) {
     <div className="page-stack">
       <div className="result-hero danger">
         <div className="result-hero-icon"><UserCheck size={28} /></div>
-        <div className="result-hero-copy"><div className="eyebrow">Human review</div><h2>{vendor.legal_name}</h2><div className="pill-row"><StatusPill value={vendor.status} /><span className="recommendation">Agent recommendation: <strong>{formatStatus(vendor.agent_recommendation)}</strong></span></div></div>
+        <div className="result-hero-copy"><div className="eyebrow">Human Review</div><h2>{vendor.legal_name}</h2><div className="pill-row"><StatusPill value={vendor.status} /><span className="recommendation">Agent Recommendation: <strong>{formatStatus(vendor.agent_recommendation)}</strong></span></div></div>
       </div>
-      {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Why this case needs review</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
+      {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Why This Case Needs Review</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
       <div className="two-column">
-        <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation results</div><CheckList checks={latest.checks || []} /></div>
+        <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation Results</div><CheckList checks={latest.checks || []} /></div>
         <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
       </div>
       <div className="panel"><div className="panel-title"><FileText size={19} /> Documents</div><DocumentList documents={detail.documents} /></div>
       <div className="panel review-form">
-        <div className="panel-title"><UserCheck size={19} /> Human decision</div>
+        <div className="panel-title"><UserCheck size={19} /> Human Decision</div>
         <div className="review-grid">
           <div><label className="field-label">Reviewer</label><input className="text-input" value={reviewer} onChange={(e) => setReviewer(e.target.value)} /></div>
-          <div><label className="field-label">Reviewer notes</label><textarea className="text-area" value={comment} onChange={(e) => setComment(e.target.value)} /></div>
+          <div><label className="field-label">Reviewer Notes</label><textarea className="text-area" value={comment} onChange={(e) => setComment(e.target.value)} /></div>
         </div>
         {error && <div className="form-error"><XCircle size={18} />{error}</div>}
         <div className="review-actions">
@@ -1058,7 +1139,7 @@ function ReviewQueueView({ config, notify }) {
 
   return (
     <section className="page-stack">
-      <div className="section-heading"><div><div className="eyebrow">Exception handling</div><h1>Human review queue</h1><p>Review only the cases routed by the verification agent.</p></div><button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
+      <div className="section-heading"><div><div className="eyebrow">Exception handling</div><h1>Human Review Queue</h1><p>Review only the cases routed by the verification agent.</p></div><button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
       <div className="review-layout">
         <aside className="panel review-sidebar">
@@ -1071,9 +1152,9 @@ function ReviewQueueView({ config, notify }) {
                 </button>
               ))}
             </div>
-          ) : <EmptyState title="Review queue is clear" copy="No cases currently require human review." icon={ShieldCheck} />}
+          ) : <EmptyState title="Review Queue Is Clear" copy="No cases currently require human review." icon={ShieldCheck} />}
         </aside>
-        <div>{selected ? <ReviewCase vendorId={selected} config={config} onCompleted={load} notify={notify} /> : <EmptyState title="No review case selected" copy="Select a case from the review queue." icon={UserCheck} />}</div>
+        <div>{selected ? <ReviewCase vendorId={selected} config={config} onCompleted={load} notify={notify} /> : <EmptyState title="No Review Case Selected" copy="Select a case from the review queue." icon={UserCheck} />}</div>
       </div>
     </section>
   );
@@ -1091,7 +1172,10 @@ function AuditView() {
     setBusy(true);
     setError("");
     try {
-      setEvents(await getAuditEvents());
+      const payload = await getAuditEvents();
+      setEvents(payload);
+      const firstVendorId = payload?.[0]?.vendor_id;
+      if (firstVendorId) setExpanded((current) => current.size ? current : new Set([firstVendorId]));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1124,30 +1208,49 @@ function AuditView() {
 
   return (
     <section className="page-stack">
-      <div className="section-heading"><div><div className="eyebrow">Traceability</div><h1>Audit trail</h1><p>Search timestamped vendor-case events from intake through human decision.</p></div><button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
+      <div className="section-heading">
+        <div>
+          <div className="eyebrow">Traceability</div>
+          <h1>Audit Trail</h1>
+          <p>Follow each vendor case like an order journey, from document submission to the current status.</p>
+        </div>
+        <button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button>
+      </div>
       <div className="toolbar panel">
-        <div className="search-field"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search case, vendor, actor or event" /></div>
-        <select value={eventType} onChange={(e) => setEventType(e.target.value)}><option value="">All event types</option>{eventTypes.map((type) => <option value={type} key={type}>{type.replaceAll("_", " ")}</option>)}</select>
+        <div className="search-field"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Case, Vendor, Actor Or Event" /></div>
+        <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+          <option value="">All Event Types</option>
+          {eventTypes.map((type) => <option value={type} key={type}>{titleCase(type)}</option>)}
+        </select>
       </div>
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
-      {busy ? <div className="loading-card"><RefreshCw className="spin" /> Loading audit events…</div> : Object.keys(groups).length ? (
+      {busy ? <div className="loading-card"><RefreshCw className="spin" /> Loading Audit History…</div> : Object.keys(groups).length ? (
         <div className="audit-groups">
           {Object.entries(groups).map(([vendorId, group]) => {
             const open = expanded.has(vendorId);
-            const vendorName = group[0]?.verification_vendors?.legal_name || vendorId;
+            const vendorMeta = group.find((event) => event.verification_vendors)?.verification_vendors || {};
+            const vendorName = vendorMeta.legal_name || vendorId;
+            const currentStatus = vendorMeta.status || group.find((event) => event.details?.status)?.details?.status;
+            const lastUpdated = vendorMeta.updated_at || [...group].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0]?.created_at;
             return (
               <div className="panel audit-group" key={vendorId}>
                 <button className="audit-group-head" onClick={() => toggle(vendorId)}>
-                  <div><strong>{vendorName}</strong><span className="mono">{vendorId}</span></div><span>{group.length} event(s) {open ? <ChevronDown size={17} /> : <ChevronRight size={17} />}</span>
+                  <div className="audit-case-identity">
+                    <strong>{vendorName}</strong>
+                    <span className="mono">{vendorId}</span>
+                    <small>Last Updated: {formatDate(lastUpdated)}</small>
+                  </div>
+                  <div className="audit-case-status">
+                    {currentStatus && <StatusPill value={currentStatus} />}
+                    <span>{open ? "Hide History" : "View History"} {open ? <ChevronDown size={17} /> : <ChevronRight size={17} />}</span>
+                  </div>
                 </button>
-                {open && <div className="audit-list">{group.map((event) => (
-                  <div className="audit-row" key={event.id}><div><strong>{event.action}</strong><span>{event.actor || "System"} · {formatDate(event.created_at)}</span></div><StatusPill value={event.event_type} /></div>
-                ))}</div>}
+                {open && <AuditLifecycle events={group} />}
               </div>
             );
           })}
         </div>
-      ) : <EmptyState title="No audit events" copy="No events match the current filters." icon={History} />}
+      ) : <EmptyState title="No Audit Events" copy="No events match the current filters." icon={History} />}
     </section>
   );
 }
@@ -1185,9 +1288,9 @@ export default function App() {
   const nav = [
     ["dashboard", "Dashboard", LayoutDashboard],
     ["cases", "Cases", ClipboardList],
-    ["intake", "New vendor", UploadCloud],
-    ["review", "Review queue", UserCheck],
-    ["audit", "Audit trail", History],
+    ["intake", "New Vendor", UploadCloud],
+    ["review", "Review Queue", UserCheck],
+    ["audit", "Audit Trail", History],
   ];
 
   return (
@@ -1196,7 +1299,7 @@ export default function App() {
       <header className="topbar">
         <button className="brand" onClick={() => setView("dashboard")}>
           <div className="brand-mark"><ShieldCheck size={22} /></div>
-          <div><strong>Vendor Verify</strong><span>Verification agent</span></div>
+          <div><strong>Vendor Verify</strong><span>Verification Agent</span></div>
         </button>
         <nav className="nav-tabs">
           {nav.map(([key, label, Icon]) => (
@@ -1205,7 +1308,7 @@ export default function App() {
         </nav>
         <div className={`health-badge ${health}`}>
           <span className="health-dot" />
-          <div><strong>{health === "online" ? "Backend connected" : health === "offline" ? "Backend unavailable" : "Checking backend"}</strong><span>{API_BASE_URL}</span></div>
+          <div><strong>{health === "online" ? "Backend Connected" : health === "offline" ? "Backend Unavailable" : "Checking Backend"}</strong><span>{API_BASE_URL}</span></div>
         </div>
       </header>
 
