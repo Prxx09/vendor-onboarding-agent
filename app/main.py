@@ -87,6 +87,11 @@ def health() -> dict[str, str]:
 def config() -> dict[str, Any]:
     return {
         "approval_threshold": APPROVAL_THRESHOLD,
+        "upload_limits": {
+            "max_documents": MAX_DOCUMENTS,
+            "max_file_size_bytes": MAX_FILE_SIZE,
+            "max_total_size_bytes": MAX_TOTAL_SIZE,
+        },
         "workflow": [
             "Upload document",
             "Extract text and OCR",
