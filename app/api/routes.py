@@ -373,7 +373,9 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         "bank_account": "bank_account_number",
         "ifsc": "ifsc_swift",
         "registered_address": "registered_address",
+        "contact_name": "contact_name",
         "contact_email": "contact_email",
+        "contact_phone": "contact_phone",
         "categories": "vendor_category",
     }
     suggestions: dict[str, dict[str, Any]] = {}
@@ -388,7 +390,9 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         "pan": {"tax_certificate": 3, "business_registration": 2},
         "bank_account": {"bank_proof": 3},
         "ifsc": {"bank_proof": 3},
+        "contact_name": {"business_registration": 2, "tax_certificate": 1, "bank_proof": 1},
         "contact_email": {"business_registration": 2, "tax_certificate": 2, "bank_proof": 1},
+        "contact_phone": {"business_registration": 2, "tax_certificate": 1, "bank_proof": 1},
         "categories": {"business_registration": 2, "tax_certificate": 1},
     }
 
