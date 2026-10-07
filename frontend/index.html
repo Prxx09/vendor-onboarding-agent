@@ -1,169 +1,169 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>VendorFlow | Vendor Operations</title>
-    <link rel="stylesheet" href="/static/styles.css">
-  </head>
-  <body>
-    <div class="app-shell">
-      <aside class="sidebar" id="sidebar">
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true">VF</span>
-          <div class="brand-copy"><strong>VendorFlow</strong><small>Vendor operations</small></div>
-          <button class="icon-btn sidebar-close" id="closeSidebar" type="button" aria-label="Close navigation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VendorFlow | Vendor Verification</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">VF</div>
+        <div><strong>VendorFlow</strong><small>Verification workspace</small></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-view="dashboard">Dashboard</button>
+        <button class="nav-item" data-view="new-vendor">New Vendor</button>
+        <button class="nav-item" data-view="result">Verification Result</button>
+        <button class="nav-item" data-view="review">Review Queue <span id="reviewCountBadge">0</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="api-pill" id="apiStatus"><span></span>Checking backend</div>
+        <small>Backend: http://127.0.0.1:8000</small>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Vendor onboarding agent</span>
+          <h1 id="viewTitle">Dashboard</h1>
+        </div>
+        <button class="primary small" data-view-target="new-vendor">+ New Vendor</button>
+      </header>
+
+      <div id="alert" class="alert" hidden></div>
+
+      <section id="dashboard" class="view active">
+        <div class="hero">
+          <div>
+            <span class="eyebrow">Operations overview</span>
+            <h2>Vendor verification dashboard</h2>
+            <p>Track automated approvals, missing-document cases, and vendors that need human review.</p>
+          </div>
+          <button class="secondary" id="refreshDashboard">Refresh</button>
         </div>
 
-        <nav class="nav" aria-label="Primary navigation">
-          <p class="nav-label">Workspace</p>
-          <button class="nav-item active" data-view="dashboard" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Overview</span></button>
-          <button class="nav-item" data-view="intake"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New intake</span></button>
-          <button class="nav-item" data-view="review"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Review queue</span><span class="nav-count" id="reviewNavCount">0</span></button>
-          <button class="nav-item" data-view="audit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span>Audit trail</span></button>
-        </nav>
-
-        <div class="sidebar-footer">
-          <div class="automation-summary">
-            <div><span>Auto-approval threshold</span><strong id="thresholdValue">—</strong></div>
-            <div class="threshold-track" aria-hidden="true"><span id="thresholdTrack"></span></div>
-            <small>Cases below this score require review.</small>
-          </div>
-          <div class="user-summary"><span class="avatar" aria-hidden="true">PK</span><div><strong>Procurement team</strong><small>Operations workspace</small></div></div>
+        <div class="stats">
+          <article><span>Approved</span><strong id="approvedMetric">0</strong></article>
+          <article><span>Action Required</span><strong id="actionMetric">0</strong></article>
+          <article><span>Review Required</span><strong id="reviewMetric">0</strong></article>
+          <article><span>Rejected</span><strong id="rejectedMetric">0</strong></article>
         </div>
-      </aside>
 
-      <div class="scrim" id="scrim"></div>
-
-      <main class="main">
-        <header class="topbar">
-          <div class="topbar-start">
-            <button class="icon-btn menu-btn" id="openSidebar" type="button" aria-label="Open navigation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-            <div><span class="breadcrumb">Vendor operations</span><strong id="topbarTitle">Overview</strong></div>
+        <section class="card">
+          <div class="card-head">
+            <div><h3>Recent vendors</h3><p>Latest verification outcomes from the agent.</p></div>
+            <select id="dashboardFilter">
+              <option value="ALL">All statuses</option>
+              <option value="APPROVED">Approved</option>
+              <option value="ACTION_REQUIRED">Action Required</option>
+              <option value="REVIEW_REQUIRED">Review Required</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
           </div>
-          <div class="topbar-actions">
-            <span class="api-status" id="apiStatus" role="status"><span></span>Connecting</span>
-            <button class="primary-btn compact" data-view-target="intake" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New intake</button>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Vendor</th><th>Status</th><th>Recommendation</th><th>Created</th><th></th></tr></thead>
+              <tbody id="vendorTable"></tbody>
+            </table>
           </div>
-        </header>
-
-        <div class="app-alert" id="appAlert" role="alert" hidden></div>
-
-        <section id="dashboard" class="view active" aria-labelledby="dashboardTitle">
-          <div class="page-heading">
-            <div><p class="eyebrow">Operations overview</p><h1 id="dashboardTitle">Vendor onboarding</h1><p>Monitor throughput, exceptions, and approval performance.</p></div>
-            <p class="last-updated" id="lastUpdated">Updated just now</p>
-          </div>
-
-          <div class="metrics-grid" aria-label="Onboarding summary">
-            <article class="metric"><span>Total cases</span><strong id="metricTotal">0</strong><small>All submitted vendors</small></article>
-            <article class="metric"><span>Auto-approved</span><strong id="metricApproved">0</strong><small id="metricApprovalRate">0% approval rate</small></article>
-            <article class="metric attention"><span>Needs attention</span><strong id="metricReview">0</strong><small>Review queue</small></article>
-            <article class="metric"><span>Average confidence</span><strong id="metricConfidence">0%</strong><small id="metricThresholdCopy">Target unavailable</small></article>
-          </div>
-
-          <section class="surface table-surface">
-            <div class="surface-header">
-              <div><h2>Onboarding cases</h2><p>Latest submissions and their current decision status.</p></div>
-              <button class="tertiary-btn" id="refreshCases" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2 5M20 4v7h-7"/></svg>Refresh</button>
-            </div>
-            <div class="toolbar" aria-label="Case filters">
-              <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span class="sr-only">Search cases</span><input id="caseSearch" type="search" placeholder="Search vendor or case ID"></label>
-              <label class="select-field"><span class="sr-only">Filter by status</span><select id="caseStatusFilter"><option value="ALL">All statuses</option><option value="HUMAN_REVIEW">Needs review</option><option value="AUTO_APPROVED">Auto-approved</option><option value="REJECTED">Rejected</option><option value="NEEDS_INFO">Needs information</option></select></label>
-            </div>
-            <div class="table-wrap">
-              <table><thead><tr><th>Vendor</th><th>Case ID</th><th>Category</th><th>Submitted</th><th>Confidence</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="caseTable"></tbody></table>
-            </div>
-            <div class="table-empty" id="caseTableEmpty" hidden>No cases match the selected filters.</div>
-          </section>
+          <div class="empty" id="vendorTableEmpty" hidden>No vendors found.</div>
         </section>
+      </section>
 
-        <section id="intake" class="view" aria-labelledby="intakeTitle">
-          <div class="page-heading"><div><p class="eyebrow">New request</p><h1 id="intakeTitle">Create vendor intake</h1><p>Upload all available evidence, verify the extracted data, then run validation.</p></div></div>
+      <section id="new-vendor" class="view">
+        <div class="hero">
+          <div><span class="eyebrow">New vendor</span><h2>Run verification</h2><p>Submit the legal name and vendor evidence. The backend will extract, classify, verify, and route the case.</p></div>
+        </div>
 
-          <ol class="stepper" aria-label="Intake progress">
-            <li class="active" id="stepUpload"><span>1</span><div><strong>Document</strong><small>Upload source</small></div></li>
-            <li id="stepVerify"><span>2</span><div><strong>Verify details</strong><small>Review extraction</small></div></li>
-            <li id="stepSubmit"><span>3</span><div><strong>Validation</strong><small>Submit checks</small></div></li>
-          </ol>
+        <form id="vendorForm" class="card form-card">
+          <label>
+            <span>Legal name</span>
+            <input id="legalName" name="legal_name" required placeholder="Evergreen Facility Solutions Private Limited">
+          </label>
 
-          <section class="surface intake-surface">
-            <div class="intake-main">
-              <div class="section-heading"><span class="section-number">1</span><div><h2>Vendor documents</h2><p>Select multiple PDF, image, Word, or text files. Maximum 10 MB per file and 30 MB combined.</p></div></div>
-              <div class="required-documents" aria-labelledby="requiredDocumentsTitle">
-                <div class="required-documents-heading"><strong id="requiredDocumentsTitle">Expected evidence</strong><span>Upload what is available</span></div>
-                <div class="document-requirements">
-                  <span data-requirement="business_registration"><i aria-hidden="true">1</i>Business registration</span>
-                  <span data-requirement="tax_certificate"><i aria-hidden="true">2</i>GST/PAN certificate</span>
-                  <span data-requirement="bank_proof"><i aria-hidden="true">3</i>Cancelled cheque / bank proof</span>
-                  <span data-requirement="address_proof"><i aria-hidden="true">4</i>Registered address proof</span>
-                  <span data-requirement="compliance_declaration"><i aria-hidden="true">5</i>Compliance declaration</span>
-                </div>
-              </div>
-              <div class="upload-zone" id="uploadZone">
-                <input id="documentInput" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.docx,.txt" aria-label="Choose vendor documents">
-                <div class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg></div>
-                <div><strong>Drop vendor documents here</strong><p id="uploadHint">or click to select multiple files</p></div>
-                <button class="secondary-btn" id="simulateExtraction" type="button" disabled>Extract details</button>
-              </div>
-              <div class="selected-files" id="fileSummary" hidden><div class="selected-files-header"><strong id="fileName">Selected documents</strong><button class="tertiary-btn" id="removeDocument" type="button">Clear all</button></div><div id="selectedFileList"></div><small id="fileMeta">Ready for extraction</small></div>
-
-              <div class="section-divider"></div>
-              <div class="section-heading"><span class="section-number">2</span><div><h2>Vendor details</h2><p>Review extracted values before submitting the case.</p></div><span class="extraction-badge" id="extractionBadge">Manual entry</span></div>
-
-              <form id="intakeForm" class="form-grid" novalidate>
-                <label><span>Legal name <em>*</em></span><input name="legal_name" required autocomplete="organization"><small class="field-error"></small></label>
-                <label><span>Category</span><select name="category"><option>Manufacturing</option><option>IT Services</option><option>Facilities</option><option>Office Supplies</option><option>General</option></select></label>
-                <label><span>Tax ID / GSTIN <em>*</em></span><input name="tax_id" required placeholder="27ABCDE1234F1Z5"><small class="field-error"></small></label>
-                <label><span>PAN <em>*</em></span><input name="pan" required placeholder="ABCDE1234F"><small class="field-error"></small></label>
-                <label><span>Bank account <em>*</em></span><input name="bank_account" required placeholder="Enter account number"><small class="field-error"></small></label>
-                <label><span>IFSC <em>*</em></span><input name="ifsc" required placeholder="HDFC0001342"><small class="field-error"></small></label>
-                <label class="span-2"><span>Registered address <em>*</em></span><textarea name="registered_address" required></textarea><small class="field-error"></small></label>
-                <label><span>Contact email <em>*</em></span><input name="contact_email" required type="email" autocomplete="email"><small class="field-error"></small></label>
-                <label><span>Region</span><input name="region" autocomplete="country-name"></label>
-                <label class="checkbox span-2"><input name="compliance_confirmed" type="checkbox" checked><span>Vendor declarations and compliance questionnaire are accepted</span></label>
-                <div class="form-actions span-2"><button class="tertiary-btn" type="button" id="resetIntake">Reset form</button><button class="primary-btn" type="submit" id="submitIntakeBtn"><span>Submit and run validation</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button></div>
-              </form>
+          <div>
+            <span class="field-label">Documents</span>
+            <div class="upload-zone" id="uploadZone">
+              <input id="files" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.docx,.txt">
+              <strong>Drop documents here or click to browse</strong>
+              <p>Recommended: business registration, tax certificate, cancelled cheque / bank proof.</p>
             </div>
+            <div id="fileList" class="file-list"></div>
+          </div>
 
-            <aside class="evidence-panel" aria-labelledby="evidenceTitle">
-              <div><p class="eyebrow">Document extraction</p><h2 id="evidenceTitle">Evidence and confidence</h2><p>Fields are combined across documents. Low-confidence values remain editable.</p></div>
-              <div class="extraction-score" id="extractionScore" hidden><div><span>Extraction confidence</span><strong id="extractionScoreValue">0%</strong></div><div class="score-line"><span id="extractionScoreBar"></span></div><p id="extractionScoreMessage"></p></div>
-              <div id="extractionPreview" class="evidence-empty"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div><strong>No document processed</strong><p>Upload a document and run extraction to review source values.</p></div>
-            </aside>
-          </section>
-        </section>
+          <div class="form-actions">
+            <button type="button" class="secondary" id="resetForm">Reset</button>
+            <button type="submit" class="primary" id="runVerification">Run Verification</button>
+          </div>
+        </form>
+      </section>
 
-        <section id="review" class="view" aria-labelledby="reviewTitle">
-          <div class="page-heading"><div><p class="eyebrow">Exception management</p><h1 id="reviewTitle">Review queue</h1><p>Prioritize low-confidence submissions and failed critical checks.</p></div></div>
-          <div class="review-workspace">
-            <section class="queue-panel" aria-label="Cases requiring review">
-              <div class="queue-header"><div><h2>Assigned cases</h2><span id="reviewCount">0 cases</span></div></div>
-              <label class="search-field queue-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span class="sr-only">Search review queue</span><input id="reviewSearch" type="search" placeholder="Search queue"></label>
-              <div id="reviewList" class="case-list"></div>
+      <section id="result" class="view">
+        <div id="resultEmpty" class="card empty-state">
+          <h3>No verification selected</h3>
+          <p>Run a new verification or open a vendor from the dashboard.</p>
+          <button class="primary" data-view-target="new-vendor">Verify a Vendor</button>
+        </div>
+
+        <div id="resultContent" hidden>
+          <div class="result-banner" id="resultBanner">
+            <div>
+              <span class="eyebrow">Verification result</span>
+              <h2 id="resultVendorName"></h2>
+              <p id="resultSummary"></p>
+            </div>
+            <span class="status-badge" id="resultStatus"></span>
+          </div>
+
+          <div class="result-grid">
+            <section class="card">
+              <div class="card-head"><div><h3>Extracted fields</h3><p>Document-by-document extraction evidence.</p></div></div>
+              <div id="extractionList" class="stack"></div>
             </section>
-            <section class="case-detail-panel" id="caseDetail" aria-live="polite"><div class="detail-empty"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><strong>Select a case</strong><p>Choose a case from the queue to inspect validation evidence.</p></div></section>
-          </div>
-        </section>
 
-        <section id="audit" class="view" aria-labelledby="auditTitle">
-          <div class="page-heading">
-            <div><p class="eyebrow">Compliance record</p><h1 id="auditTitle">Audit trail</h1><p>Trace every document, validation, routing, and reviewer action.</p></div>
-            <button class="tertiary-btn" id="refreshAudit" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2 5M20 4v7h-7"/></svg>Refresh</button>
+            <section class="card">
+              <div class="card-head"><div><h3>Verification checks</h3><p>Registry, KYC, bank and cross-document checks.</p></div></div>
+              <div id="checkList" class="stack"></div>
+            </section>
           </div>
-          <section class="surface audit-surface">
-            <div class="toolbar audit-toolbar">
-              <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span class="sr-only">Search audit events</span><input id="auditSearch" type="search" placeholder="Search case, actor, or event"></label>
-              <label class="select-field"><span class="sr-only">Filter audit event type</span><select id="auditTypeFilter"><option value="ALL">All event types</option></select></label>
-            </div>
-            <div class="audit-list-header"><span>Case</span><span>Status</span><span>Events</span><span>Latest activity</span><span class="sr-only">Expand</span></div>
-            <div id="auditTimeline" class="timeline"></div>
+
+          <section class="card">
+            <div class="card-head"><div><h3>Agent activity</h3><p>Step-by-step processing timeline.</p></div></div>
+            <div id="eventTimeline" class="timeline"></div>
           </section>
-        </section>
-      </main>
-    </div>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="/static/app.js"></script>
-  </body>
+          <section class="card" id="reasonsCard">
+            <div class="card-head"><div><h3>Decision rationale</h3><p>Why the agent reached this outcome.</p></div></div>
+            <ul id="reasonList" class="reason-list"></ul>
+          </section>
+        </div>
+      </section>
+
+      <section id="review" class="view">
+        <div class="hero">
+          <div><span class="eyebrow">Human review</span><h2>Review queue</h2><p>Inspect suspicious cases, evidence, and the agent recommendation before making the final decision.</p></div>
+          <button class="secondary" id="refreshQueue">Refresh</button>
+        </div>
+
+        <div class="review-layout">
+          <section class="card queue-card">
+            <div class="card-head"><div><h3>Cases</h3><p id="queueCount">0 requiring review</p></div></div>
+            <div id="reviewList" class="review-list"></div>
+          </section>
+
+          <section class="card detail-card" id="reviewDetail">
+            <div class="empty-state"><h3>Select a vendor</h3><p>Choose a case from the queue to inspect evidence and make a decision.</p></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/static/app.js"></script>
+</body>
 </html>
