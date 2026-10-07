@@ -439,7 +439,7 @@ function CaseTable({ rows, onOpen }) {
   );
 }
 
-function CasesView({ initialCaseId = null }) {
+function CasesView({ initialCaseId = null, config }) {
   const [selected, setSelected] = useState(initialCaseId);
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
@@ -464,7 +464,7 @@ function CasesView({ initialCaseId = null }) {
     return () => clearTimeout(timer);
   }, [load]);
 
-  if (selected) return <CaseDetail vendorId={selected} onBack={() => setSelected(null)} />;
+  if (selected) return <CaseDetail vendorId={selected} config={config} onBack={() => setSelected(null)} />;
 
   return (
     <section className="page-stack">
@@ -605,7 +605,7 @@ function NewVendorView({ config, notify }) {
       .catch((err) => active && setApiError(err.message || "Document extraction failed."))
       .finally(() => active && setExtracting(false));
     return () => { active = false; };
-  }, [files, manualEdits]);
+  }, [files]);
 
   const updateField = (name, value) => {
     setFields((current) => ({ ...current, [name]: value }));
@@ -808,7 +808,7 @@ function DocumentList({ documents = [] }) {
   );
 }
 
-function CaseDetail({ vendorId, onBack }) {
+function CaseDetail({ vendorId, config, onBack }) {
   const [detail, setDetail] = useState(null);
   const [tab, setTab] = useState("overview");
   const [busy, setBusy] = useState(true);
@@ -885,7 +885,7 @@ function CaseDetail({ vendorId, onBack }) {
       )}
 
       {tab === "scorecard" && (
-        <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Verification scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} /></div>
+        <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Verification scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
       )}
 
       {tab === "history" && (
@@ -904,7 +904,7 @@ function CaseDetail({ vendorId, onBack }) {
   );
 }
 
-function ReviewCase({ vendorId, onCompleted, notify }) {
+function ReviewCase({ vendorId, config, onCompleted, notify }) {
   const [detail, setDetail] = useState(null);
   const [reviewer, setReviewer] = useState("");
   const [comment, setComment] = useState("");
@@ -962,7 +962,7 @@ function ReviewCase({ vendorId, onCompleted, notify }) {
       {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Why this case needs review</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
       <div className="two-column">
         <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation results</div><CheckList checks={latest.checks || []} /></div>
-        <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} /></div>
+        <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
       </div>
       <div className="panel"><div className="panel-title"><FileText size={19} /> Documents</div><DocumentList documents={detail.documents} /></div>
       <div className="panel review-form">
@@ -982,7 +982,7 @@ function ReviewCase({ vendorId, onCompleted, notify }) {
   );
 }
 
-function ReviewQueueView({ notify }) {
+function ReviewQueueView({ config, notify }) {
   const [queue, setQueue] = useState([]);
   const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState("");
@@ -1027,7 +1027,7 @@ function ReviewQueueView({ notify }) {
             </div>
           ) : <EmptyState title="Review queue is clear" copy="No cases currently require human review." icon={ShieldCheck} />}
         </aside>
-        <div>{selected ? <ReviewCase vendorId={selected} onCompleted={load} notify={notify} /> : <EmptyState title="No review case selected" copy="Select a case from the review queue." icon={UserCheck} />}</div>
+        <div>{selected ? <ReviewCase vendorId={selected} config={config} onCompleted={load} notify={notify} /> : <EmptyState title="No review case selected" copy="Select a case from the review queue." icon={UserCheck} />}</div>
       </div>
     </section>
   );
@@ -1166,9 +1166,9 @@ export default function App() {
       <main className="main-content">
         {configError && <div className="form-error"><XCircle size={18} />{configError}</div>}
         {view === "dashboard" && <DashboardView onOpenCase={openCase} />}
-        {view === "cases" && <CasesView key={caseId || "cases"} initialCaseId={caseId} />}
+        {view === "cases" && <CasesView key={caseId || "cases"} initialCaseId={caseId} config={config} />}
         {view === "intake" && (config ? <NewVendorView config={config} notify={setToast} /> : <div className="loading-card"><RefreshCw className="spin" /> Loading intake policy…</div>)}
-        {view === "review" && <ReviewQueueView notify={setToast} />}
+        {view === "review" && <ReviewQueueView config={config} notify={setToast} />}
         {view === "audit" && <AuditView />}
       </main>
 
