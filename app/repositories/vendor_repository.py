@@ -9,6 +9,35 @@ from app.core.config import get_settings
 from app.domain.models import DocumentExtraction, HumanReviewRequest, VendorProcessResult
 
 
+def _review_decision_audit_event(
+    review: dict,
+    vendor_name: str | None = None,
+) -> dict:
+    decision = str(review.get("decision") or "").upper()
+    action = {
+        "APPROVE": "Vendor approved by reviewer.",
+        "REJECT": "Vendor rejected by reviewer.",
+        "REQUEST_INFORMATION": "Reviewer requested additional information.",
+    }.get(decision, f"Reviewer decision: {decision or 'UNKNOWN'}.")
+
+    return {
+        "id": f"review-{review.get('id')}",
+        "vendor_id": review.get("vendor_id"),
+        "event_type": "REVIEW_DECISION",
+        "actor": review.get("reviewer"),
+        "action": action,
+        "details": {
+            "decision": decision,
+            "comment": review.get("comment") or "",
+            "review_decision_id": review.get("id"),
+        },
+        "created_at": review.get("created_at"),
+        "verification_vendors": (
+            {"legal_name": vendor_name} if vendor_name else None
+        ),
+    }
+
+
 CHECK_SCORES = {
     "VERIFIED": 100.0,
     "REVIEW_REQUIRED": 50.0,
@@ -341,17 +370,87 @@ class VendorRepository:
         limit: int = 500,
     ) -> list[dict]:
         try:
-            db_query = (
+            rows = (
                 self.db.table("verification_audit_events")
                 .select("*,verification_vendors(legal_name)")
                 .order("created_at", desc=True)
                 .limit(limit)
+                .execute()
+                .data
+                or []
             )
-            if event_type:
-                db_query = db_query.eq("event_type", event_type)
-            rows = db_query.execute().data or []
         except Exception:
-            return []
+            rows = []
+
+        # Human review decisions are also persisted in their own canonical table.
+        # Merge them into the audit feed so a review remains visible even if an
+        # audit-table insert failed or the case predates decision-specific events.
+        try:
+            reviews = (
+                self.db.table("verification_review_decisions")
+                .select("*")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+                .data
+                or []
+            )
+        except Exception:
+            reviews = []
+
+        vendor_ids = {
+            str(review.get("vendor_id"))
+            for review in reviews
+            if review.get("vendor_id")
+        }
+        vendor_names: dict[str, str] = {}
+        if vendor_ids:
+            try:
+                vendors = (
+                    self.db.table("verification_vendors")
+                    .select("id,legal_name")
+                    .in_("id", list(vendor_ids))
+                    .execute()
+                    .data
+                    or []
+                )
+                vendor_names = {
+                    str(item.get("id")): str(item.get("legal_name") or "")
+                    for item in vendors
+                }
+            except Exception:
+                vendor_names = {}
+
+        persisted_review_ids = {
+            str((row.get("details") or {}).get("review_decision_id"))
+            for row in rows
+            if (row.get("details") or {}).get("review_decision_id") is not None
+        }
+
+        # Older HUMAN_REVIEW rows did not contain the review-decision ID and can
+        # duplicate the canonical review record, so prefer the review table.
+        rows = [
+            row for row in rows
+            if row.get("event_type") != "HUMAN_REVIEW"
+        ]
+
+        for review in reviews:
+            review_id = str(review.get("id"))
+            if review_id not in persisted_review_ids:
+                rows.append(
+                    _review_decision_audit_event(
+                        review,
+                        vendor_names.get(str(review.get("vendor_id"))),
+                    )
+                )
+
+        rows.sort(
+            key=lambda item: str(item.get("created_at") or ""),
+            reverse=True,
+        )
+
+        if event_type:
+            rows = [row for row in rows if row.get("event_type") == event_type]
 
         if query:
             needle = query.strip().lower()
@@ -366,7 +465,7 @@ class VendorRepository:
                     (row.get("verification_vendors") or {}).get("legal_name") or ""
                 ).lower()
             ]
-        return rows
+        return rows[:limit]
 
     async def get_vendor(self, vendor_id: str) -> dict | None:
         vendor = (
@@ -411,6 +510,28 @@ class VendorRepository:
             audit_rows = audit.data or []
         except Exception:
             audit_rows = []
+
+        persisted_review_ids = {
+            str((row.get("details") or {}).get("review_decision_id"))
+            for row in audit_rows
+            if (row.get("details") or {}).get("review_decision_id") is not None
+        }
+        audit_rows = [
+            row for row in audit_rows
+            if row.get("event_type") != "HUMAN_REVIEW"
+        ]
+        for review_row in reviews.data or []:
+            if str(review_row.get("id")) not in persisted_review_ids:
+                audit_rows.append(
+                    _review_decision_audit_event(
+                        review_row,
+                        (vendor.data or [{}])[0].get("legal_name"),
+                    )
+                )
+        audit_rows.sort(
+            key=lambda item: str(item.get("created_at") or ""),
+            reverse=True,
+        )
 
         document_rows = docs.data or []
         for document in document_rows:
@@ -468,14 +589,19 @@ class VendorRepository:
         else:
             final_status = "REJECTED"
 
-        self.db.table("verification_review_decisions").insert(
-            {
-                "vendor_id": vendor_id,
-                "decision": review.decision,
-                "reviewer": review.reviewer,
-                "comment": review.comment,
-            }
-        ).execute()
+        review_row = (
+            self.db.table("verification_review_decisions")
+            .insert(
+                {
+                    "vendor_id": vendor_id,
+                    "decision": review.decision,
+                    "reviewer": review.reviewer,
+                    "comment": review.comment,
+                }
+            )
+            .execute()
+        )
+        saved_review = (review_row.data or [{}])[0]
 
         updated = (
             self.db.table("verification_vendors")
@@ -490,12 +616,23 @@ class VendorRepository:
             .execute()
         )
 
+        action = {
+            "APPROVE": "Vendor approved by reviewer.",
+            "REJECT": "Vendor rejected by reviewer.",
+            "REQUEST_INFORMATION": "Reviewer requested additional information.",
+        }.get(review.decision, f"Reviewer decision: {review.decision}.")
+
         self._audit(
             vendor_id,
-            "HUMAN_REVIEW",
-            f"Reviewer decision: {review.decision}.",
+            "REVIEW_DECISION",
+            action,
             actor=review.reviewer,
-            details={"decision": review.decision, "comment": review.comment},
+            details={
+                "decision": review.decision,
+                "comment": review.comment,
+                "review_decision_id": saved_review.get("id"),
+                "final_status": final_status,
+            },
         )
 
         return updated.data[0] if updated.data else {

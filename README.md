@@ -195,3 +195,12 @@ The backend is the source of truth for workflow and upload policy:
 - `GET /api/v1/vendors/{vendor_id}/documents/{document_id}` opens a stored document through a short-lived Supabase signed URL.
 
 The current MVP intentionally does not add a simulated extraction fallback or local-memory persistence. Extraction failures remain visible, and Supabase is the configured persistence layer for the demo.
+
+
+### Human-review audit resilience
+
+Human reviewer decisions are stored in `verification_review_decisions` and are
+also written to `verification_audit_events` as `REVIEW_DECISION` events.
+Audit APIs merge the canonical review-decision history as a fallback, so
+approve/reject/request-information actions remain visible even if an older
+generic audit event is missing.
