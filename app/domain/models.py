@@ -27,6 +27,7 @@ class DocumentExtraction(BaseModel):
     legal_name: str | None = None
     registration_number: str | None = None
     tax_id: str | None = None
+    pan: str | None = None
 
     account_holder_name: str | None = None
     bank_name: str | None = None
@@ -37,6 +38,7 @@ class DocumentExtraction(BaseModel):
     issue_date: str | None = None
     expiry_date: str | None = None
 
+    field_confidence: dict[str, float] = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
 
 
@@ -52,6 +54,13 @@ class AgentEvent(BaseModel):
     message: str
 
 
+class ScorecardItem(BaseModel):
+    name: str
+    score: float = Field(ge=0.0, le=100.0)
+    status: str
+    message: str
+
+
 class VendorProcessResult(BaseModel):
     vendor_id: str
     vendor_name: str
@@ -62,9 +71,12 @@ class VendorProcessResult(BaseModel):
     checks: list[VerificationEvidence] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     events: list[AgentEvent] = Field(default_factory=list)
+    confidence_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    scorecard: list[ScorecardItem] = Field(default_factory=list)
+    submitted_data: dict[str, Any] = Field(default_factory=dict)
 
 
 class HumanReviewRequest(BaseModel):
-    decision: Literal["APPROVE", "REJECT"]
+    decision: Literal["APPROVE", "REJECT", "REQUEST_INFORMATION"]
     reviewer: str
     comment: str = ""
