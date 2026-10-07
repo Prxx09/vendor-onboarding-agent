@@ -329,26 +329,56 @@ async def extract_documents(files: list[UploadFile] = File(...)):
     }
     suggestions: dict[str, dict[str, Any]] = {}
 
+    # Prefer the most trustworthy source when the same field appears in multiple
+    # documents. This avoids a low-confidence/secondary document winning simply
+    # because it was uploaded first.
+    preferred_document = {
+        "legal_name": {"business_registration": 3, "tax_certificate": 2, "bank_proof": 1},
+        "registered_address": {"business_registration": 3, "tax_certificate": 2},
+        "tax_id": {"tax_certificate": 3},
+        "pan": {"tax_certificate": 3, "business_registration": 2},
+        "bank_account": {"bank_proof": 3},
+        "ifsc": {"bank_proof": 3},
+        "contact_email": {"business_registration": 2, "tax_certificate": 2, "bank_proof": 1},
+        "category": {"business_registration": 2, "tax_certificate": 1},
+    }
+
     for output in extractions:
+        document_meta = next(
+            (
+                item
+                for item in document_results
+                if item.get("filename") == output.filename
+            ),
+            {},
+        )
         for target, source_field in field_map.items():
             value = getattr(output, source_field, None)
-            if value and target not in suggestions:
-                document_meta = next(
-                    (
-                        item
-                        for item in document_results
-                        if item.get("filename") == output.filename
-                    ),
-                    {},
-                )
+            if not value:
+                continue
+
+            field_confidence = float(
+                output.field_confidence.get(source_field, output.confidence)
+            )
+            document_priority = preferred_document.get(target, {}).get(
+                output.document_type, 0
+            )
+            candidate_rank = (document_priority, field_confidence)
+            current = suggestions.get(target)
+            current_rank = tuple(current.get("_rank", (-1, -1.0))) if current else (-1, -1.0)
+
+            if candidate_rank > current_rank:
                 suggestions[target] = {
                     "value": value,
-                    "confidence": output.field_confidence.get(
-                        source_field, output.confidence
-                    ),
+                    "confidence": field_confidence,
                     "source": output.filename,
+                    "document_type": output.document_type,
                     "extraction_method": document_meta.get("extraction_method"),
+                    "_rank": candidate_rank,
                 }
+
+    for meta in suggestions.values():
+        meta.pop("_rank", None)
 
     settings = get_settings()
     required_fields = _csv_values(settings.REQUIRED_INTAKE_FIELDS)
