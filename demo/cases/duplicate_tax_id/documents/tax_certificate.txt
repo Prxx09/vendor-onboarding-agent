@@ -1,0 +1,5 @@
+Legal Name: Example Vendor India Pvt Ltd
+Tax ID: SYN-TAX-ACME-001
+Registered Address: 1 Fictional Demo Lane, Sample City
+Tax Status: Active
+Effective Date: 2024-01-15

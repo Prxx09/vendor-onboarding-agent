@@ -80,7 +80,7 @@ def validate_bank(ctx: ValidationContext) -> list[Finding]:
                     routing_field,
                 )
             )
-        elif bank_entry is not None and bank_name:
+        elif bank_entry is not None and bank_name and ctx.verification.bank_routing is None and ctx.verification.bank is None:
             expected_name = str(bank_entry["name"])
             if similarity(bank_name, expected_name) < ctx.rules_config.holder_name_similarity_threshold:
                 findings.append(
@@ -125,7 +125,7 @@ def validate_bank(ctx: ValidationContext) -> list[Finding]:
         or text_value(ctx.field(DocumentType.TAX_CERTIFICATE, "legal_name"))
         or ctx.request.legal_name
     )
-    if holder and legal_name:
+    if holder and legal_name and ctx.verification.bank is None:
         score = similarity(holder, legal_name)
         if score < ctx.rules_config.holder_name_similarity_threshold:
             findings.append(

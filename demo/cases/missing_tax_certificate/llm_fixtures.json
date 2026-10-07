@@ -1,0 +1,73 @@
+{
+  "document_extraction": {
+    "BUSINESS_REGISTRATION": {
+      "document_type": "BUSINESS_REGISTRATION",
+      "fields": [
+        {
+          "name": "legal_name",
+          "value": "Example Vendor India Pvt Ltd",
+          "evidence_quote": "Legal Name: Example Vendor India Pvt Ltd"
+        },
+        {
+          "name": "registration_number",
+          "value": "DEMO-IN-0001",
+          "evidence_quote": "Registration Number: DEMO-IN-0001"
+        },
+        {
+          "name": "company_type",
+          "value": "Private Limited Company",
+          "evidence_quote": "Company Type: Private Limited Company"
+        },
+        {
+          "name": "address",
+          "value": "1 Fictional Demo Lane, Sample City",
+          "evidence_quote": "Registered Address: 1 Fictional Demo Lane, Sample City"
+        },
+        {
+          "name": "issue_date",
+          "value": "12 March 2023",
+          "evidence_quote": "Issue Date: 12 March 2023"
+        },
+        {
+          "name": "expiry_date",
+          "value": "12 March 2033",
+          "evidence_quote": "Expiry Date: 12 March 2033"
+        }
+      ],
+      "line_items": [],
+      "uncertainties": []
+    },
+    "BANK_DOCUMENT": {
+      "document_type": "BANK_DOCUMENT",
+      "fields": [
+        {
+          "name": "account_holder_name",
+          "value": "Example Vendor India Pvt Ltd",
+          "evidence_quote": "Account Holder Name: Example Vendor India Pvt Ltd"
+        },
+        {
+          "name": "bank_name",
+          "value": "Synthetic National Bank",
+          "evidence_quote": "Bank Name: Synthetic National Bank"
+        },
+        {
+          "name": "account_number",
+          "value": "123456789012",
+          "evidence_quote": "Account Number: 123456789012"
+        },
+        {
+          "name": "routing_code",
+          "value": "SYNB0001234",
+          "evidence_quote": "IFSC: SYNB0001234"
+        },
+        {
+          "name": "currency",
+          "value": "INR",
+          "evidence_quote": "Currency: INR"
+        }
+      ],
+      "line_items": [],
+      "uncertainties": []
+    }
+  }
+}

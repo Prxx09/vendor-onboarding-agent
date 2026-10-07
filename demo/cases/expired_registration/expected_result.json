@@ -1,0 +1,16 @@
+{
+  "recommended_next_action": "REQUEST_REWORK",
+  "hard_blocked": false,
+  "required_approval_stages": [
+    "PROCUREMENT",
+    "BUDGET_OWNER"
+  ],
+  "fictional_data": true,
+  "workflow_status": "REWORK",
+  "risk_score": 30,
+  "risk_label": "MEDIUM",
+  "finding_codes": [
+    "EXPIRED_DOCUMENT",
+    "LOW_CONFIDENCE_FIELD"
+  ]
+}

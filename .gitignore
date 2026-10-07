@@ -8,3 +8,4 @@ __pycache__/
 pytest-cache-files-*/
 .ruff_cache/
 data/uploads/
+config/integrations.yaml

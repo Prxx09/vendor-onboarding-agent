@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from app.integrations.bundle import VerificationBundle
 from app.rules.config import RulesConfig
 from app.rules.document_fields import DocumentType
 from app.schemas.domain import Document, ExtractedFieldRecord, SanctionsEntry, Vendor, VendorRequest
@@ -23,6 +24,7 @@ class ValidationContext:
     today: date = field(default_factory=date.today)
     documents: list[Document] = field(default_factory=list)
     bank_reference: dict[str, Any] = field(default_factory=lambda: BANK_REFERENCE)
+    verification: VerificationBundle = field(default_factory=VerificationBundle)
 
     def fields(self, document_type: DocumentType, field_name: str) -> list[ExtractedFieldRecord]:
         return [

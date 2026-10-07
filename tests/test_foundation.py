@@ -4,7 +4,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.agents.smoke import SmokeAgent
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.llm.errors import LLMOutputError, LLMProviderError, MockResponseNotConfigured
 from app.llm.factory import get_llm_provider
 from app.llm.groq_provider import GroqProvider
@@ -40,7 +40,8 @@ class FakeClient:
 def test_settings_defaults_without_secrets(monkeypatch):
     get_settings.cache_clear()
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
-    settings = get_settings()
+    monkeypatch.delenv("REPOSITORY_BACKEND", raising=False)
+    settings = Settings(_env_file=None)
     assert settings.llm_provider == "mock"
     assert settings.groq_api_key is None
     assert settings.repository_backend == "memory"

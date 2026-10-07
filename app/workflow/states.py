@@ -19,7 +19,7 @@ class WorkflowStatus(StrEnum):
 
 
 TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
-    WorkflowStatus.DRAFT: frozenset({WorkflowStatus.DOCUMENTS_UPLOADED}),
+    WorkflowStatus.DRAFT: frozenset({WorkflowStatus.DOCUMENTS_UPLOADED, WorkflowStatus.NEEDS_MANUAL_REVIEW}),
     WorkflowStatus.DOCUMENTS_UPLOADED: frozenset(
         {WorkflowStatus.EXTRACTED, WorkflowStatus.NEEDS_MANUAL_REVIEW}
     ),
@@ -30,7 +30,7 @@ TRANSITIONS: dict[WorkflowStatus, frozenset[WorkflowStatus]] = {
         {WorkflowStatus.VALIDATED, WorkflowStatus.NEEDS_MANUAL_REVIEW}
     ),
     WorkflowStatus.VALIDATED: frozenset(
-        {WorkflowStatus.PENDING_PROCUREMENT, WorkflowStatus.REWORK, WorkflowStatus.BLOCKED}
+        {WorkflowStatus.PENDING_PROCUREMENT, WorkflowStatus.REWORK, WorkflowStatus.BLOCKED, WorkflowStatus.NEEDS_MANUAL_REVIEW}
     ),
     WorkflowStatus.PENDING_PROCUREMENT: frozenset(
         {WorkflowStatus.PENDING_BUDGET, WorkflowStatus.REWORK, WorkflowStatus.REJECTED}

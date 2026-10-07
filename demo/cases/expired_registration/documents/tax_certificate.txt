@@ -1,0 +1,5 @@
+Legal Name: Example Vendor India Pvt Ltd
+Tax ID: 27AAPFU0939F1ZV
+Registered Address: 1 Fictional Demo Lane, Sample City
+Tax Status: Active
+Effective Date: 2024-01-15

@@ -1,0 +1,17 @@
+{
+  "recommended_next_action": "BLOCKED",
+  "hard_blocked": true,
+  "required_approval_stages": [
+    "PROCUREMENT",
+    "BUDGET_OWNER"
+  ],
+  "fictional_data": true,
+  "workflow_status": "BLOCKED",
+  "risk_score": 50,
+  "risk_label": "MEDIUM",
+  "finding_codes": [
+    "DUPLICATE_TAX_ID",
+    "INVALID_TAX_ID_FORMAT",
+    "LOW_CONFIDENCE_FIELD"
+  ]
+}

@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from app.config import Settings
@@ -15,6 +17,8 @@ def settings() -> Settings:
 def repository(request, monkeypatch):
     if request.param == "memory":
         return InMemoryRepository()
+    if os.getenv("RUN_SUPABASE_INTEGRATION_TESTS", "").casefold() != "true":
+        pytest.skip("Set RUN_SUPABASE_INTEGRATION_TESTS=true to run live Supabase integration tests")
     monkeypatch.setenv("REPOSITORY_BACKEND", "supabase")
     settings = Settings()
     if not settings.supabase_url or not settings.supabase_service_key:
@@ -24,8 +28,14 @@ def repository(request, monkeypatch):
 
 @pytest.fixture
 def contract_request(repository):
-    model = VendorRequest(request_type=RequestType.NEW_SUPPLIER, supplier_name="Test Fixture Vendor")
+    is_supabase = hasattr(repository, "client")
+    model = VendorRequest(
+        request_type=RequestType.NEW_SUPPLIER,
+        supplier_name="Test Fixture Vendor",
+        is_demo=is_supabase,
+    )
     created = repository.create_request(model)
     yield created
-    if hasattr(repository, "client"):
-        repository.client.table("vendor_requests").delete().eq("id", created.id).execute()
+    if is_supabase:
+        # Preserve the synthetic request: deleting it would SET NULL on immutable audit rows.
+        return

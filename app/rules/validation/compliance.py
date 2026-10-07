@@ -13,7 +13,7 @@ def validate_compliance(ctx: ValidationContext) -> list[Finding]:
         or text_value(ctx.field(DocumentType.TAX_CERTIFICATE, "legal_name"))
         or ctx.request.supplier_name
     )
-    if supplier_name:
+    if supplier_name and ctx.verification.sanctions is None:
         for entry in ctx.sanctions_entries:
             candidates = [entry.name, *entry.aliases]
             matched = max(candidates, key=lambda name: match_score(supplier_name, name))

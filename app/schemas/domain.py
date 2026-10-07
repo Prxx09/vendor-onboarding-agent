@@ -102,6 +102,19 @@ class FindingRecord(Record):
     source: str
 
 
+class VerificationResultRecord(Record):
+    request_id: str
+    capability: str
+    provider_name: str
+    mode: str
+    status: str
+    reference_id: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+    latency_ms: int = 0
+    error: str | None = None
+    checked_at: datetime = Field(default_factory=now_utc)
+
+
 class RiskAssessmentRecord(Record):
     request_id: str
     score: int
@@ -109,12 +122,16 @@ class RiskAssessmentRecord(Record):
     hard_blocks: dict[str, Any] | list[Any] = Field(default_factory=list)
     contributions: dict[str, Any] | list[Any] = Field(default_factory=list)
     explanation: dict[str, Any] = Field(default_factory=dict)
+    blocked: bool = False
+    simulated_checks: list[str] = Field(default_factory=list)
+    config_snapshot: dict[str, Any] = Field(default_factory=dict)
 
 
 class Approval(Record):
     request_id: str
     stage: ApprovalStage
     approver_id: str
+    approver_role: str | None = None
     decision: ApprovalDecision | None = None
     comment: str | None = None
 

@@ -13,15 +13,17 @@ Agentic layer only. Supabase is the persistence backend. No frontend, no full CR
 9. No hardcoded secrets. Config comes from environment via app/config.py.
 10. The test suite must run fully offline using MockProvider and InMemoryRepository.
 ## Layout
-app/config.py, app/logging_config.py, app/llm/, app/schemas/, app/agents/, app/prompts/ (*.md templates), app/rules/, app/tools/, app/repositories/, app/services/, app/workflow/, app/orchestration/, app/utils/, tests/, scripts/, demo/, supabase/, docs/
+app/config.py, config/, app/logging_config.py, app/llm/, app/schemas/, app/agents/, app/prompts/ (*.md templates), app/rules/, app/integrations/, app/tools/, app/repositories/, app/services/, app/workflow/, app/orchestration/, app/utils/, tests/, scripts/, demo/, supabase/, docs/
 ## Commands (PowerShell)
 pip install -e ".[dev]"; python -m pytest -q; ruff check .
 ## Definition of done for every phase
 Tests green, ruff clean, only files in the phase scope changed, and a final report with: (a) files created/modified, (b) how to run/verify, (c) assumptions made, (d) anything intentionally deferred. Keep the report under 40 lines. Do not ask questions; make reasonable assumptions and list them.
 ## Phase status
-[x] 0 Foundation  [x] 1 Supabase  [x] 2 Document understanding  [x] 3 Validation  [ ] 4 Risk  [ ] 5 Orchestrator  [ ] 6 Human review  [ ] 7 Drafts  [ ] 8 E2E + facade
-11. All external verification (company registry/KYC, tax ID, bank account, sanctions) goes through ports in app/integrations/. No other module may import httpx/requests or contain a URL, API key name or vendor-specific response shape.
-12. Every verification result carries mode = LOCAL_SIMULATED or LIVE, and reports/drafts must label simulated checks.
+[x] 0 Foundation  [x] 1 Supabase  [x] 2 Document understanding  [x] 3 Validation  [x] 4 Risk  [x] 5 Orchestrator  [x] 6 Human review  [x] 7 Drafts  [ ] 8 E2E + facade
+11. All external verification goes through ports in app/integrations/. No other module may import httpx/requests or contain a URL, API key name or vendor-specific response shape.
+12. Every verification result carries mode LOCAL_SIMULATED or LIVE and reports/drafts label simulated checks.
 13. A provider failure never produces a pass. It yields UNAVAILABLE and routes the request to manual review.
-14. Raw government/bank provider responses are not persisted or logged unless STORE_RAW_VERIFICATION_RESPONSES=true (default false). Log only provider, capability, status, latency and an input hash.
-15. Going live means: set env vars, edit config/integrations.yaml, switch the provider to http. Code changes are limited to app/integrations/.
+14. Raw government/bank provider responses are not persisted or logged unless STORE_RAW_VERIFICATION_RESPONSES=true (default false). Log only provider, capability, status, latency, input hash.
+15. Going live = env vars + config/integrations.yaml + provider switch. Code changes are limited to app/integrations/.
+
+[x] 3B External verification ports and adapters

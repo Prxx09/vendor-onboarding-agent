@@ -15,6 +15,7 @@ from app.schemas.domain import (
     Vendor,
     VendorDraftRecord,
     VendorRequest,
+    VerificationResultRecord,
     now_utc,
 )
 from app.workflow.states import assert_transition
@@ -33,6 +34,7 @@ class InMemoryRepository(OnboardingRepository):
         self.documents: dict[str, Document] = {}
         self.extracted_fields: dict[str, ExtractedFieldRecord] = {}
         self.findings: dict[str, FindingRecord] = {}
+        self.verification_results: dict[str, VerificationResultRecord] = {}
         self.risk_assessments: dict[str, RiskAssessmentRecord] = {}
         self.approvals: dict[str, Approval] = {}
         self._audit_events: tuple[AuditEvent, ...] = ()
@@ -134,6 +136,20 @@ class InMemoryRepository(OnboardingRepository):
     def list_findings(self, request_id: str) -> list[FindingRecord]:
         return self._for_request(self.findings, request_id)
 
+    def save_verification_results(self, request_id: str, results: list[VerificationResultRecord]) -> list[VerificationResultRecord]:
+        self._required(self.requests, request_id, "request")
+        if any(item.request_id != request_id for item in results):
+            raise ValueError("Verification result request_id does not match save scope")
+        existing = [key for key, item in self.verification_results.items() if item.request_id == request_id]
+        for key in existing:
+            del self.verification_results[key]
+        for item in results:
+            self.verification_results[item.id] = deepcopy(item)
+        return deepcopy(results)
+
+    def list_verification_results(self, request_id: str) -> list[VerificationResultRecord]:
+        return self._for_request(self.verification_results, request_id)
+
     def save_risk_assessment(self, assessment: RiskAssessmentRecord) -> RiskAssessmentRecord:
         self._required(self.requests, assessment.request_id, "request")
         self.risk_assessments[assessment.id] = deepcopy(assessment)
@@ -175,19 +191,31 @@ class InMemoryRepository(OnboardingRepository):
 
     def save_vendor_draft(self, draft: VendorDraftRecord) -> VendorDraftRecord:
         self._required(self.requests, draft.request_id, "request")
-        self.vendor_drafts[draft.request_id] = deepcopy(draft)
+        if any(item.request_id == draft.request_id and item.version == draft.version for item in self.vendor_drafts.values()):
+            raise ValueError(f"Vendor draft version already exists: {draft.request_id} v{draft.version}")
+        self.vendor_drafts[draft.id] = deepcopy(draft)
         return deepcopy(draft)
 
     def get_vendor_draft(self, request_id: str) -> VendorDraftRecord | None:
-        return deepcopy(self.vendor_drafts.get(request_id))
+        drafts = self.list_vendor_drafts(request_id)
+        return deepcopy(drafts[-1]) if drafts else None
+
+    def list_vendor_drafts(self, request_id: str) -> list[VendorDraftRecord]:
+        return sorted(self._for_request(self.vendor_drafts, request_id), key=lambda item: item.version)
 
     def save_po_draft(self, draft: PODraftRecord) -> PODraftRecord:
         self._required(self.requests, draft.request_id, "request")
-        self.po_drafts[draft.request_id] = deepcopy(draft)
+        if any(item.request_id == draft.request_id and item.version == draft.version for item in self.po_drafts.values()):
+            raise ValueError(f"PO draft version already exists: {draft.request_id} v{draft.version}")
+        self.po_drafts[draft.id] = deepcopy(draft)
         return deepcopy(draft)
 
     def get_po_draft(self, request_id: str) -> PODraftRecord | None:
-        return deepcopy(self.po_drafts.get(request_id))
+        drafts = self.list_po_drafts(request_id)
+        return deepcopy(drafts[-1]) if drafts else None
+
+    def list_po_drafts(self, request_id: str) -> list[PODraftRecord]:
+        return sorted(self._for_request(self.po_drafts, request_id), key=lambda item: item.version)
 
     @staticmethod
     def _required(collection: dict, key: str, label: str):

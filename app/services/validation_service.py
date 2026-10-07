@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime
 
+from app.integrations.bundle import VerificationBundle
 from app.repositories.base import OnboardingRepository
 from app.rules.config import RulesConfig
 from app.rules.document_fields import DocumentType
@@ -32,6 +33,9 @@ class ValidationService:
             sanctions_entries=self.repo.list_sanctions_entries(),
             rules_config=self.rules_config,
             today=today or datetime.now(UTC).date(),
+            verification=VerificationBundle.from_records(
+                self.repo.list_verification_results(request_id)
+            ),
         )
         findings = run_validations(context)
         persisted = [

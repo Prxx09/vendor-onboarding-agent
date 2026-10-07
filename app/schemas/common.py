@@ -9,6 +9,7 @@ class Evidence(BaseModel):
     field_name: str
     quote: str
     page: int | None = None
+    verification_mode: str | None = None
 
 
 class AgentStatus(StrEnum):

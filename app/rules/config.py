@@ -13,3 +13,5 @@ class RulesConfig:
     high_value_threshold: float = 100_000
     high_risk_countries: list[str] = field(default_factory=list)
     bank_letter_max_age_days: int = 180
+    risk_low_max: int = 25
+    risk_medium_max: int = 60

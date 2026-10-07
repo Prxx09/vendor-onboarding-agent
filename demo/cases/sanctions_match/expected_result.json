@@ -1,0 +1,17 @@
+{
+  "recommended_next_action": "BLOCKED",
+  "hard_blocked": true,
+  "required_approval_stages": [
+    "PROCUREMENT",
+    "BUDGET_OWNER"
+  ],
+  "fictional_data": true,
+  "workflow_status": "BLOCKED",
+  "risk_score": 100,
+  "risk_label": "HIGH",
+  "finding_codes": [
+    "KYC_VERIFICATION_FAILED",
+    "LOW_CONFIDENCE_FIELD",
+    "SANCTIONS_MATCH"
+  ]
+}

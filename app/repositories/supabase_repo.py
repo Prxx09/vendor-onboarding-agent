@@ -15,6 +15,7 @@ from app.schemas.domain import (
     Vendor,
     VendorDraftRecord,
     VendorRequest,
+    VerificationResultRecord,
     now_utc,
 )
 from app.workflow.states import assert_transition
@@ -115,6 +116,15 @@ class SupabaseRepository(OnboardingRepository):
     def list_findings(self, request_id: str) -> list[FindingRecord]:
         return self._list("validation_findings", FindingRecord, request_id)
 
+    def save_verification_results(self, request_id: str, results: list[VerificationResultRecord]) -> list[VerificationResultRecord]:
+        if any(item.request_id != request_id for item in results):
+            raise ValueError("Verification result request_id does not match save scope")
+        self.client.table("verification_results").delete().eq("request_id", request_id).execute()
+        return self._insert_many("verification_results", results, VerificationResultRecord)
+
+    def list_verification_results(self, request_id: str) -> list[VerificationResultRecord]:
+        return self._list("verification_results", VerificationResultRecord, request_id)
+
     def save_risk_assessment(self, assessment: RiskAssessmentRecord) -> RiskAssessmentRecord:
         return self._insert("risk_assessments", assessment, RiskAssessmentRecord)
 
@@ -154,16 +164,24 @@ class SupabaseRepository(OnboardingRepository):
         return self._insert("agent_runs", run, AgentRun)
 
     def save_vendor_draft(self, draft: VendorDraftRecord) -> VendorDraftRecord:
-        return self._upsert("vendor_drafts", draft, VendorDraftRecord, "request_id")
+        return self._insert("vendor_drafts", draft, VendorDraftRecord)
 
     def get_vendor_draft(self, request_id: str) -> VendorDraftRecord | None:
-        return self._one("vendor_drafts", VendorDraftRecord, "request_id", request_id)
+        drafts = self.list_vendor_drafts(request_id)
+        return drafts[-1] if drafts else None
+
+    def list_vendor_drafts(self, request_id: str) -> list[VendorDraftRecord]:
+        return sorted(self._list("vendor_drafts", VendorDraftRecord, request_id), key=lambda item: item.version)
 
     def save_po_draft(self, draft: PODraftRecord) -> PODraftRecord:
-        return self._upsert("po_drafts", draft, PODraftRecord, "request_id")
+        return self._insert("po_drafts", draft, PODraftRecord)
 
     def get_po_draft(self, request_id: str) -> PODraftRecord | None:
-        return self._one("po_drafts", PODraftRecord, "request_id", request_id)
+        drafts = self.list_po_drafts(request_id)
+        return drafts[-1] if drafts else None
+
+    def list_po_drafts(self, request_id: str) -> list[PODraftRecord]:
+        return sorted(self._list("po_drafts", PODraftRecord, request_id), key=lambda item: item.version)
 
     def _insert(self, table: str, model: M, model_type: type[M]) -> M:
         response = self.client.table(table).insert(self._dump(model)).select("*").execute()

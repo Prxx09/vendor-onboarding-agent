@@ -1,0 +1,5 @@
+Account Holder Name: Example Vendor India Pvt Ltd
+Bank Name: Synthetic National Bank
+Account Number: 123456789012
+IFSC: SYNB0001234
+Currency: INR

@@ -1,0 +1,17 @@
+{
+  "recommended_next_action": "PROCEED_TO_APPROVAL",
+  "hard_blocked": false,
+  "required_approval_stages": [
+    "PROCUREMENT",
+    "BUDGET_OWNER",
+    "FINANCE_HEAD"
+  ],
+  "fictional_data": true,
+  "workflow_status": "PENDING_PROCUREMENT",
+  "risk_score": 20,
+  "risk_label": "LOW",
+  "finding_codes": [
+    "HIGH_VALUE_PURCHASE",
+    "LOW_CONFIDENCE_FIELD"
+  ]
+}

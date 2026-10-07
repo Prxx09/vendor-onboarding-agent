@@ -27,6 +27,7 @@ from app.schemas.domain import (
     Vendor,
     VendorDraftRecord,
     VendorRequest,
+    VerificationResultRecord,
 )
 from app.workflow.states import WorkflowStatus, assert_transition, can_transition
 
@@ -113,6 +114,15 @@ def test_repository_contract(repository, contract_request):
     assert repository.list_findings(rid)[0].code == "TEST"
     repository.save_findings(rid, "DETERMINISTIC", [])
     assert repository.list_findings(rid) == []
+
+    verification = VerificationResultRecord(
+        request_id=rid, capability="sanctions", provider_name="fixture",
+        mode="LOCAL_SIMULATED", status="VERIFIED", details={"simulation": "test"},
+    )
+    repository.save_verification_results(rid, [verification])
+    assert repository.list_verification_results(rid)[0].capability == "sanctions"
+    repository.save_verification_results(rid, [])
+    assert repository.list_verification_results(rid) == []
 
     risk = RiskAssessmentRecord(request_id=rid, score=12, label="LOW")
     repository.save_risk_assessment(risk)

@@ -1,0 +1,95 @@
+# Fully fictional endpoints. Replace URLs and mappings only after vendor review.
+capabilities:
+  company_registry:
+    provider_name: fictional_registry_api
+    base_url: https://registry.example.invalid
+    method: POST
+    path: /v1/company/verify
+    timeout: 5
+    retries: 2
+    auth:
+      type: bearer
+      secret_env: FICTIONAL_REGISTRY_TOKEN
+    request_body_template:
+      registration_number: "{registration_number}"
+      legal_name: "{legal_name}"
+      country: "{country}"
+    status_field: result
+    status_mapping: {verified: VERIFIED, mismatch: MISMATCH, not_found: NOT_FOUND}
+    response_mapping:
+      registered_name: company.name
+      active: company.active
+      incorporation_date: company.incorporated
+      registered_address: company.address
+      name_match_score: company.name_score
+  tax_id:
+    provider_name: fictional_tax_api
+    base_url: https://tax.example.invalid
+    method: POST
+    path: /v1/tax/verify
+    timeout: 5
+    retries: 2
+    auth:
+      type: api_key_header
+      secret_env: FICTIONAL_TAX_KEY
+      header_name: X-Fictional-Key
+    request_body_template:
+      tax_id: "{tax_id}"
+      country: "{country}"
+      legal_name: "{legal_name}"
+    status_field: result
+    status_mapping: {verified: VERIFIED, mismatch: MISMATCH, not_found: NOT_FOUND}
+    response_mapping:
+      registered_legal_name: company.name
+      tax_status: tax.status
+      registered_address: company.address
+      name_match_score: company.name_score
+  bank_account:
+    provider_name: fictional_bank_api
+    base_url: https://bank.example.invalid
+    method: POST
+    path: /v1/account/verify
+    timeout: 5
+    retries: 2
+    auth: {type: basic, username_env: FICTIONAL_BANK_USER, secret_env: FICTIONAL_BANK_PASSWORD}
+    request_body_template:
+      account_number: "{account_number}"
+      routing_code: "{routing_code}"
+      account_holder_name: "{account_holder_name}"
+      bank_name: "{bank_name}"
+      country: "{country}"
+      currency: "{currency}"
+    status_field: result
+    status_mapping: {verified: VERIFIED, mismatch: MISMATCH, not_found: NOT_FOUND}
+    response_mapping:
+      account_active: account.active
+      resolved_bank_name: bank.name
+      holder_name_match_score: account.holder_score
+  bank_routing:
+    provider_name: fictional_bank_api
+    base_url: https://bank.example.invalid
+    method: GET
+    path: /v1/routing/{routing_code}
+    timeout: 5
+    retries: 2
+    auth: {type: basic, username_env: FICTIONAL_BANK_USER, secret_env: FICTIONAL_BANK_PASSWORD}
+    status_field: result
+    status_mapping: {verified: VERIFIED, mismatch: MISMATCH, not_found: NOT_FOUND}
+    response_mapping:
+      resolved_bank_name: bank.name
+  sanctions:
+    provider_name: fictional_screening_api
+    base_url: https://screening.example.invalid
+    method: POST
+    path: /v1/screen
+    timeout: 5
+    retries: 2
+    auth: {type: none}
+    request_body_template:
+      name: "{name}"
+      aliases: "{aliases}"
+      country: "{country}"
+    status_field: result
+    status_mapping: {clear: VERIFIED, potential_match: MISMATCH, not_found: NOT_FOUND}
+    response_mapping:
+      matches: matches

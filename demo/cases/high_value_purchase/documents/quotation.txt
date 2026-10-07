@@ -1,0 +1,8 @@
+Supplier Name: Example Vendor India Pvt Ltd
+Currency: INR
+Total: INR 130000
+Payment Terms: Net 30 days
+Item: Synthetic office supply pack
+Quantity: 2
+Unit Price: INR 65000
+Tax: INR 0
