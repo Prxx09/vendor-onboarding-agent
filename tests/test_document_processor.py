@@ -24,10 +24,14 @@ async def test_pdf_prefers_embedded_text(monkeypatch):
 
     doc = pymupdf.open()
     page = doc.new_page()
-    page.insert_text(
-        (72, 72),
-        "BUSINESS REGISTRATION Evergreen Facility Solutions Private Limited "
-        "Registration Number U74999MH2024PTC100101",
+    page.insert_textbox(
+        pymupdf.Rect(72, 72, 500, 220),
+        (
+            "BUSINESS REGISTRATION\n"
+            "Evergreen Facility Solutions Private Limited\n"
+            "Registration Number U74999MH2024PTC100101"
+        ),
+        fontsize=11,
     )
     pdf = doc.tobytes()
     doc.close()
