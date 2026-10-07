@@ -24,6 +24,7 @@ from app.data import (
 from app.workflow import simulate_document_extraction
 from app.extraction import SUPPORTED_EXTENSIONS, extract_documents
 from app import storage
+from app.vendor_api import router as vendor_router
 
 load_dotenv()
 LOCAL_FILES: dict[tuple[str, str], tuple[bytes, str, str]] = {}
@@ -45,6 +46,7 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.include_router(vendor_router)
 
 
 class IntakePayload(BaseModel):
