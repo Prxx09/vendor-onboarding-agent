@@ -1,4 +1,4 @@
-import fitz
+import pymupdf
 import pytest
 
 from app.ocr.base import OcrProvider
@@ -22,7 +22,7 @@ async def test_pdf_prefers_embedded_text(monkeypatch):
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test")
     monkeypatch.setenv("GEMINI_API_KEY", "test")
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
     page.insert_text(
         (72, 72),
@@ -62,7 +62,7 @@ async def test_scanned_pdf_falls_back_to_ocr(monkeypatch):
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test")
     monkeypatch.setenv("GEMINI_API_KEY", "test")
 
-    doc = fitz.open()
+    doc = pymupdf.open()
     doc.new_page()
     pdf = doc.tobytes()
     doc.close()
