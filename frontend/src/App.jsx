@@ -625,6 +625,19 @@ function NewVendorView({ config, notify }) {
     if (fields.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.contact_email)) {
       next.contact_email = "Enter a valid email address.";
     }
+
+    Object.entries(config?.intake?.validation_patterns || {}).forEach(([field, pattern]) => {
+      const value = String(fields[field] || "").trim();
+      if (!value || !pattern) return;
+      try {
+        if (!(new RegExp(pattern)).test(value)) {
+          next[field] = "Value does not match the configured format.";
+        }
+      } catch {
+        // Invalid backend regex configuration should not block the user.
+      }
+    });
+
     setErrors(next);
     return Object.keys(next).length === 0;
   };
