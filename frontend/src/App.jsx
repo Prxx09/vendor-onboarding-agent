@@ -1415,17 +1415,21 @@ function ReviewQueueView({ config, notify }) {
               {filtered.map((row) => (
                 <button className={selected === row.id ? "active" : ""} key={row.id} onClick={() => setSelected(row.id)}>
                   <div className="review-case-copy">
-                    <div className="review-case-title"><strong>{row.legal_name}</strong><StatusPill value={row.status} /></div>
-                    <span>{row.reasons?.[0] || "Manual Review Required."}</span>
-                    <small>{row.risk_level ? `${titleCase(row.risk_level)} Risk · ` : ""}{formatPercent(row.confidence_score)} Confidence</small>
+                    <strong className="review-case-name">{row.legal_name}</strong>
+                    <span className="review-case-reason">{row.reasons?.[0] || "Manual Review Required."}</span>
+                    <div className="review-case-meta">
+                      <StatusPill value={row.status} />
+                      {row.risk_level && <span>{titleCase(row.risk_level)} Risk</span>}
+                      <span>{formatPercent(row.confidence_score)} Confidence</span>
+                    </div>
                   </div>
-                  <ChevronRight size={16} />
+                  <ChevronRight className="review-case-chevron" size={16} />
                 </button>
               ))}
             </div>
           ) : <EmptyState title="Review Queue Is Clear" copy="No cases currently require human review." icon={ShieldCheck} />}
         </aside>
-        <div>{selected ? <ReviewCase vendorId={selected} config={config} onCompleted={load} notify={notify} /> : <EmptyState title="No Review Case Selected" copy="Select a case from the review queue." icon={UserCheck} />}</div>
+        <div className="review-workspace">{selected ? <ReviewCase vendorId={selected} config={config} onCompleted={load} notify={notify} /> : <EmptyState title="No Review Case Selected" copy="Select a case from the review queue." icon={UserCheck} />}</div>
       </div>
     </section>
   );
