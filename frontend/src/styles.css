@@ -148,6 +148,9 @@ button { cursor: pointer; }
 .callout.warning { color: #835009; background: var(--amber-soft); border: 1px solid #f2daa1; }
 .callout strong { font-size: 12px; }
 .callout p { margin: 4px 0 0; font-size: 12px; }
+.continue-application { display: grid; gap: 12px; }
+.missing-upload.compact { box-shadow: none; }
+.missing-upload.compact .missing-upload-body { padding-top: 14px; }
 
 .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
 .panel-title { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 900; }
