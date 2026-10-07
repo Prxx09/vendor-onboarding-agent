@@ -68,6 +68,12 @@ const statusTone = {
   WAIT_FOR_DOCUMENTS: "warning",
   REQUEST_INFORMATION: "warning",
   APPROVE: "success",
+  ACTIVE: "success",
+  COMPLETE: "success",
+  REGISTERED: "success",
+  EXPIRED: "danger",
+  PENDING_REVIEW: "warning",
+  NOT_AVAILABLE: "neutral",
 };
 
 const statusLabel = {
@@ -1049,7 +1055,12 @@ function CaseDetail({ vendorId, config, onBack }) {
   const vendor = detail.vendor || {};
   const latest = detail.agent_runs?.[0] || {};
   const submitted = vendor.submitted_data || {};
-  const tabs = ["overview", "submission", "scorecard", "history"];
+  const tabs = [
+    "overview",
+    "submission",
+    "scorecard",
+    // "history", // Audit Trail / case history disabled for the current demo.
+  ];
 
   return (
     <section className="page-stack">
@@ -1133,12 +1144,15 @@ function CaseDetail({ vendorId, config, onBack }) {
         <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Verification Scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
       )}
 
+      {/*
       {tab === "history" && (
         <div className="panel">
           <div className="panel-title"><History size={19} /> Complete Case History</div>
           <AuditLifecycle events={detail.audit_events || []} />
         </div>
       )}
+      Audit Trail / case history disabled for the current demo.
+      */}
     </section>
   );
 }
