@@ -22,6 +22,19 @@ class Settings(BaseSettings):
     PDF_NATIVE_TEXT_MIN_CHARS: int = 40
     DOCUMENT_TEXT_MAX_CHARS: int = 30000
 
+    # Frontend/backend policy is supplied by the backend; the frontend does
+    # not embed upload limits, thresholds, users, regions or categories.
+    MAX_UPLOAD_FILES: int = 8
+    MAX_FILE_SIZE_MB: int = 20
+    MAX_COMBINED_UPLOAD_MB: int = 100
+    AUTO_APPROVAL_THRESHOLD: float | None = None
+    REQUIRED_INTAKE_FIELDS: str = (
+        "legal_name,tax_id,bank_account,ifsc,registered_address,compliance_confirmed"
+    )
+    VENDOR_REGIONS: str = ""
+    VENDOR_CATEGORIES: str = ""
+    DOCUMENT_STORAGE_BUCKET: str = "verification-documents"
+
     VERIFICATION_PROVIDER_MODE: str = "supabase"
 
     COMPANY_REGISTRY_API_URL: str | None = None
