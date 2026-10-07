@@ -35,11 +35,16 @@ For business registration, extract:
 legal company name, registration number, address, issue date and expiry date.
 
 For tax certificates, extract:
-legal company name, tax identifier, address and relevant dates.
+legal company name, tax identifier, PAN when explicitly present, address and relevant dates.
+
+For every extracted field, populate field_confidence with a 0.0-1.0 confidence
+value keyed by the JSON field name. Omit confidence entries for absent fields.
+The field confidence should reflect readability/extraction certainty only, not
+whether the document is authentic.
 
 Dates should be ISO YYYY-MM-DD when the text provides enough information.
-The confidence field is confidence in the document classification, not
-confidence that the document is genuine.
+The top-level confidence field is confidence in the document classification,
+not confidence that the document is genuine.
 
 Return only data matching the supplied JSON schema.
 """
