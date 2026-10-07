@@ -159,6 +159,24 @@ function MissingDocumentUpload({ result, onUpdated }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const chooseFiles = (incoming) => {
+    setError("");
+    const valid = [];
+    for (const file of Array.from(incoming || [])) {
+      const lower = file.name.toLowerCase();
+      if (!SUPPORTED_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+        setError(`${file.name} is not a supported PDF/image file.`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`${file.name} exceeds the 20 MB file limit.`);
+        continue;
+      }
+      valid.push(file);
+    }
+    setFiles(valid);
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     if (!files.length) {
@@ -183,7 +201,7 @@ function MissingDocumentUpload({ result, onUpdated }) {
       <div className="panel-title"><UploadCloud size={19} /> Continue this onboarding case</div>
       <p>
         Upload only the missing document(s): {result.missing_documents.join(", ")}.
-        Existing verified documents will be reused and the same vendor ID will continue.
+        Existing stored documents will be reused and the same vendor ID will continue.
       </p>
       <label className="primary-button file-button">
         Choose missing document
@@ -191,7 +209,7 @@ function MissingDocumentUpload({ result, onUpdated }) {
           type="file"
           multiple
           accept=".pdf,.png,.jpg,.jpeg,.webp"
-          onChange={(event) => setFiles(Array.from(event.target.files || []))}
+          onChange={(event) => chooseFiles(event.target.files)}
         />
       </label>
       {files.length > 0 && (
@@ -203,6 +221,14 @@ function MissingDocumentUpload({ result, onUpdated }) {
                 <strong>{file.name}</strong>
                 <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
               </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setFiles((items) => items.filter((item) => item !== file))}
+                aria-label={`Remove ${file.name}`}
+              >
+                <X size={17} />
+              </button>
             </div>
           ))}
         </div>

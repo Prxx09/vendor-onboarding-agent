@@ -27,6 +27,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 
 - `GET /health`
 - `POST /api/v1/vendors/process`
+- `POST /api/v1/vendors/{vendor_id}/documents` — upload missing documents and resume the same ACTION_REQUIRED case
 - `GET /api/v1/vendors/review-queue`
 - `GET /api/v1/vendors/{vendor_id}`
 - `POST /api/v1/vendors/{vendor_id}/review`
@@ -38,3 +39,8 @@ PDF, PNG, JPG/JPEG and WEBP, up to 20 MB per file.
 The current verification flow shown in the UI is:
 
 Windows OCR / native PDF text -> Groq structuring -> Supabase verification -> decision -> human review when required.
+
+
+## Resume an incomplete vendor
+
+When the process response is `ACTION_REQUIRED`, the result screen shows a "Continue this onboarding case" upload control. The frontend sends only the newly selected document(s) to `POST /api/v1/vendors/{vendor_id}/documents`; the backend reuses documents already stored for that vendor and keeps the same vendor ID.
