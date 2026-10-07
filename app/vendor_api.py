@@ -238,11 +238,6 @@ async def process_vendor(
                 case = {**case, **stored}
         except Exception as exc:
             raise HTTPException(status_code=503, detail=f"Vendor was not stored: {exc}") from exc
-    else:
-        for index, (name, content, mime) in enumerate(documents):
-            document_id = f"source-document-{index + 1}"
-            LOCAL_FILES[(case["id"], document_id)] = (content, mime, name)
-
     per_doc = []
     for item in extraction.get("documents", []):
         doc_fields = item.get("fields", {})
