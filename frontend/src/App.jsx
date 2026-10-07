@@ -257,7 +257,9 @@ function AuditLifecycle({ events = [] }) {
                 <strong>{titleCase(event.action || event.event_type)}</strong>
                 {event.event_type === "STATUS_UPDATE" && event.details?.status
                   ? <StatusPill value={event.details.status} />
-                  : null}
+                  : event.event_type === "REVIEW_DECISION" && event.details?.final_status
+                    ? <StatusPill value={event.details.final_status} />
+                    : null}
               </div>
               <p>{detailFor(event)}</p>
               <span>{event.actor || "System"} · {formatDate(event.created_at)}</span>
