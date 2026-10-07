@@ -58,7 +58,7 @@ const statusTone = {
   PASS: "success",
   ACTION_REQUIRED: "warning",
   REVIEW: "warning",
-  REVIEW_REQUIRED: "danger",
+  REVIEW_REQUIRED: "warning",
   REJECTED: "danger",
   REJECT: "danger",
   FAIL: "danger",
@@ -434,7 +434,7 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
         <Metric label="Documents Read" value={result.extractions?.length || 0} icon={FileCheck2} />
         <Metric label="Checks Verified" value={verified} icon={CheckCircle2} tone="success" />
         <Metric label="Checks Flagged" value={flagged} icon={AlertTriangle} tone={flagged ? "danger" : "neutral"} />
-        <Metric label="Confidence" value={formatPercent(result.confidence_score)} icon={BarChart3} />
+        <Metric label={result.overall_status === "ACTION_REQUIRED" ? "Extraction Confidence" : "Verification Confidence"} value={formatPercent(result.confidence_score)} icon={BarChart3} />
       </div>
 
       {result.missing_documents?.length > 0 && (
@@ -475,39 +475,51 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
 }
 
 function MasterVendorTable({ rows, onOpenCase }) {
+  const openRow = (row) => {
+    if (row.case_id) onOpenCase(row.case_id);
+  };
+
   return (
     <div className="table-wrap">
       <table className="case-table master-vendor-table">
         <thead>
           <tr>
-            <th>Registered Vendor</th>
-            <th>Registration No.</th>
-            <th>Tax ID</th>
+            <th>Vendor</th>
             <th>Category</th>
             <th>Region</th>
             <th>Registration</th>
             <th>KYC</th>
-            <th>Onboarding Status</th>
+            <th>Onboarding</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.registration_number || row.legal_name}>
+            <tr
+              key={row.registration_number || row.legal_name}
+              className={row.case_id ? "clickable-row" : ""}
+              tabIndex={row.case_id ? 0 : undefined}
+              onClick={() => openRow(row)}
+              onKeyDown={(event) => {
+                if (row.case_id && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  openRow(row);
+                }
+              }}
+            >
               <td>
                 <strong>{row.legal_name}</strong>
-                {row.contact_email && <div className="table-subtext">{row.contact_email}</div>}
+                <div className="table-subtext mono">{row.registration_number || "No Registration Number"}</div>
+                {row.tax_id && <div className="table-subtext">Tax ID: {row.tax_id}</div>}
               </td>
-              <td className="mono">{row.registration_number || "—"}</td>
-              <td>{row.tax_id || "—"}</td>
               <td>{row.vendor_category || "—"}</td>
               <td>{row.region || row.country || "—"}</td>
               <td><StatusPill value={row.registration_status || "REGISTERED"} /></td>
               <td><StatusPill value={row.kyc_status || "NOT_AVAILABLE"} /></td>
-              <td>{row.case_status ? <StatusPill value={row.case_status} /> : <span className="registered-only">Registered</span>}</td>
+              <td>{row.case_status ? <StatusPill value={row.case_status} /> : <span className="registered-only">Registered Only</span>}</td>
               <td>
                 {row.case_id
-                  ? <button className="icon-button" title="Open Onboarding Case" onClick={() => onOpenCase(row.case_id)}><ChevronRight size={17} /></button>
+                  ? <button className="icon-button row-action" aria-label={`Open ${row.legal_name} onboarding case`} onClick={(event) => { event.stopPropagation(); onOpenCase(row.case_id); }}><ChevronRight size={18} /></button>
                   : null}
               </td>
             </tr>
@@ -517,7 +529,6 @@ function MasterVendorTable({ rows, onOpenCase }) {
     </div>
   );
 }
-
 function DashboardView({ onOpenCase }) {
   const [data, setData] = useState(null);
   const [registeredVendors, setRegisteredVendors] = useState([]);
@@ -569,19 +580,17 @@ function DashboardView({ onOpenCase }) {
         <>
           <div className="metric-grid dashboard-metrics">
             <Metric label="Registered Vendors" value={data?.registered_vendor_count ?? registeredVendors.length} icon={Building2} />
-            <Metric label="Onboarding Cases" value={data?.total_cases} icon={ClipboardList} />
             <Metric label="Approved Vendors" value={data?.approved_cases} icon={CheckCircle2} tone="success" />
-            <Metric label="Needs Human Review" value={data?.review_required_cases} icon={UserCheck} tone="danger" />
+            <Metric label="Needs Human Review" value={data?.review_required_cases} icon={UserCheck} tone="warning" />
             <Metric label="Needs Information" value={data?.action_required_cases} icon={CircleAlert} tone="warning" />
-            <Metric label="Approval Rate" value={formatPercent(data?.approval_rate)} icon={ShieldCheck} tone="success" />
-            <Metric label="Average Confidence" value={formatPercent(data?.average_confidence_score)} icon={BarChart3} />
-            <Metric
-              label="Auto-Approval Threshold"
-              value={data?.auto_approval_threshold === null || data?.auto_approval_threshold === undefined ? "Not Configured" : formatPercent(data.auto_approval_threshold)}
-              icon={SearchCheck}
-            />
           </div>
-          <div className="dashboard-meta">Recently Updated: <strong>{formatDate(data?.recently_updated_at)}</strong></div>
+          <div className="dashboard-summary-strip">
+            <div><span>Onboarding Cases</span><strong>{data?.total_cases ?? "—"}</strong></div>
+            <div><span>Approval Rate</span><strong>{formatPercent(data?.approval_rate)}</strong></div>
+            <div><span>Average Confidence</span><strong>{formatPercent(data?.average_confidence_score)}</strong></div>
+            <div><span>Auto-Approval Threshold</span><strong>{data?.auto_approval_threshold === null || data?.auto_approval_threshold === undefined ? "Not Configured" : formatPercent(data.auto_approval_threshold)}</strong></div>
+            <div><span>Recently Updated</span><strong>{formatDate(data?.recently_updated_at)}</strong></div>
+          </div>
 
           <div className="toolbar panel master-toolbar">
             <div className="search-field">
@@ -607,18 +616,27 @@ function CaseTable({ rows, onOpen }) {
   return (
     <div className="table-wrap">
       <table className="case-table">
-        <thead><tr><th>Vendor</th><th>Case ID</th><th>Category</th><th>Region</th><th>Submitted</th><th>Confidence</th><th>Status</th><th /></tr></thead>
+        <thead><tr><th>Vendor</th><th>Status</th><th>Confidence</th><th>Category</th><th>Submitted</th><th /></tr></thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id}>
-              <td><strong>{row.legal_name}</strong></td>
-              <td className="mono">{row.id}</td>
-              <td>{row.category || "—"}</td>
-              <td>{row.region || "—"}</td>
-              <td>{formatDate(row.created_at)}</td>
-              <td>{formatPercent(row.confidence_score)}</td>
+            <tr
+              key={row.id}
+              className="clickable-row"
+              tabIndex={0}
+              onClick={() => onOpen(row.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onOpen(row.id);
+                }
+              }}
+            >
+              <td><strong>{row.legal_name}</strong><div className="table-subtext mono">{row.id}</div><div className="table-subtext">{row.region || "Region Not Set"}</div></td>
               <td><StatusPill value={row.status} /></td>
-              <td><button className="icon-button" onClick={() => onOpen(row.id)}><ChevronRight size={17} /></button></td>
+              <td>{formatPercent(row.confidence_score)}</td>
+              <td>{row.category || "—"}</td>
+              <td>{formatDate(row.created_at)}</td>
+              <td><button className="icon-button row-action" aria-label={`Open ${row.legal_name} case`} onClick={(event) => { event.stopPropagation(); onOpen(row.id); }}><ChevronRight size={18} /></button></td>
             </tr>
           ))}
         </tbody>
@@ -626,7 +644,6 @@ function CaseTable({ rows, onOpen }) {
     </div>
   );
 }
-
 function CasesView({ initialCaseId = null, config }) {
   const [selected, setSelected] = useState(initialCaseId);
   const [rows, setRows] = useState([]);
@@ -658,7 +675,7 @@ function CasesView({ initialCaseId = null, config }) {
     <section className="page-stack">
       <div className="section-heading"><div><div className="eyebrow">Case Management</div><h1>Vendor Cases</h1><p>Search, filter and inspect every submitted verification case.</p></div></div>
       <div className="toolbar panel">
-        <div className="search-field"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search vendor name or case ID" /></div>
+        <div className="search-field"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Vendor Name Or Case ID" /></div>
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All Statuses</option>
           <option value="REVIEW_REQUIRED">Needs Review</option>
@@ -669,7 +686,7 @@ function CasesView({ initialCaseId = null, config }) {
         <button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button>
       </div>
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
-      {busy ? <div className="loading-card"><RefreshCw className="spin" /> Loading cases…</div> : rows.length ? (
+      {busy ? <div className="loading-card"><RefreshCw className="spin" /> Loading Cases…</div> : rows.length ? (
         <div className="panel"><CaseTable rows={rows} onOpen={setSelected} /></div>
       ) : <EmptyState title="No matching cases" copy="Change the search or status filter, or submit a new vendor." icon={ClipboardList} />}
     </section>
@@ -678,10 +695,11 @@ function CasesView({ initialCaseId = null, config }) {
 
 function SourceHint({ meta }) {
   if (!meta) return null;
+  const manual = meta.extraction_method === "manual_override" || meta.source === "Manual entry";
   return (
-    <div className="field-source">
-      <span>Source: {meta.source}</span>
-      <span>Confidence: {formatPercent(Number(meta.confidence) * 100)}</span>
+    <div className={`field-source ${manual ? "manual" : "ai"}`}>
+      <span>{manual ? "Manual Entry" : "AI Extracted"} · {meta.source}</span>
+      {!manual && <span>{formatPercent(Number(meta.confidence) * 100)}</span>}
     </div>
   );
 }
@@ -899,7 +917,7 @@ function NewVendorView({ config, notify }) {
 
   const renderInput = (name, label, props = {}) => (
     <div className="form-field">
-      <label className="field-label" htmlFor={name}>{label}{requiredFields.includes(name) && <span className="required-mark"> required</span>}</label>
+      <label className="field-label" htmlFor={name}>{label}{requiredFields.includes(name) && <span className="required-mark" aria-label="Required"> *</span>}</label>
       <input
         id={name}
         className={`text-input ${errors[name] ? "invalid" : ""}`}
@@ -916,7 +934,7 @@ function NewVendorView({ config, notify }) {
     <section className="page-stack">
       <div className="section-heading">
         <div><div className="eyebrow">Vendor Intake</div><h1>New Vendor Onboarding</h1><p>Upload vendor evidence, review AI-extracted information, and submit the application for verification.</p></div>
-        <button className="ghost-button" onClick={reset}><RefreshCw size={16} /> Reset intake</button>
+        <button className="ghost-button" onClick={reset}><RefreshCw size={16} /> Reset</button>
       </div>
 
       <ProgressSteps stage={stage} />
@@ -935,10 +953,10 @@ function NewVendorView({ config, notify }) {
             }}
           >
             <UploadCloud size={30} />
-            <strong>Drop vendor documents here</strong>
+            <strong>Drop Documents Here</strong>
             {policy && <p>{(policy.supported_extensions || []).join(", ")} · {policy.max_file_size_mb} MB per file · {policy.max_files} files maximum</p>}
             <label className="primary-button file-button">
-              Choose files
+              Choose Files
               <input type="file" multiple onChange={(e) => setFiles(validateFiles(e.target.files))} />
             </label>
           </div>
@@ -960,9 +978,9 @@ function NewVendorView({ config, notify }) {
           {extraction && (
             <>
               <div className="extraction-summary">
-                <div><span>Documents processed</span><strong>{extraction.documents?.length || 0}</strong></div>
-                <div><span>Extraction confidence</span><strong>{formatPercent(averageExtraction)}</strong></div>
-                <div><span>Required fields missing</span><strong>{extraction.missing_required_fields?.length || 0}</strong></div>
+                <div><span>Documents Processed</span><strong>{extraction.documents?.length || 0}</strong></div>
+                <div><span>Extraction Confidence</span><strong>{formatPercent(averageExtraction)}</strong></div>
+                <div><span>Required Fields Missing</span><strong>{extraction.missing_required_fields?.length || 0}</strong></div>
               </div>
               <div className="coverage-list">
                 {coverage.map((item) => (
@@ -1004,7 +1022,7 @@ function NewVendorView({ config, notify }) {
           {apiError && <div className="form-error"><XCircle size={18} />{apiError}</div>}
 
           <button className="primary-button submit-button" disabled={submitting || extracting || !files.length}>
-            {submitting ? <><RefreshCw className="spin" size={18} /> Verifying and submitting…</> : <><SearchCheck size={18} /> Verify and submit vendor</>}
+            {submitting ? <><RefreshCw className="spin" size={18} /> Verifying…</> : <><SearchCheck size={18} /> Verify And Submit</>}
           </button>
         </form>
       </div>
@@ -1064,7 +1082,7 @@ function CaseDetail({ vendorId, config, onBack }) {
 
   return (
     <section className="page-stack">
-      <button className="back-button" onClick={onBack}><ArrowLeft size={17} /> Back to cases</button>
+      <button className="back-button" onClick={onBack}><ArrowLeft size={17} /> Back To Cases</button>
       <div className={`result-hero ${statusTone[vendor.status] || "neutral"}`}>
         <div className="result-hero-icon"><Building2 size={30} /></div>
         <div className="result-hero-copy">
@@ -1081,34 +1099,23 @@ function CaseDetail({ vendorId, config, onBack }) {
 
       {tab === "overview" && (
         <div className="page-stack">
-          <div className="metric-grid">
-            <Metric label="Confidence" value={formatPercent(latest.confidence_score)} icon={BarChart3} />
-            <Metric label="Risk Level" value={vendor.risk_level || "—"} icon={AlertTriangle} tone={vendor.risk_level === "HIGH" ? "danger" : vendor.risk_level === "MEDIUM" ? "warning" : "neutral"} />
-            <Metric label="Category" value={vendor.category || "—"} icon={ClipboardList} />
-            <Metric label="Region" value={vendor.region || "—"} icon={Building2} />
-            <Metric label="Last Reviewer" value={vendor.last_reviewer || "—"} icon={UserCheck} />
-            <Metric label="Last Updated" value={formatDate(vendor.updated_at)} icon={History} />
-          </div>
-          {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Decision Explanation</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
-
           {vendor.status === "ACTION_REQUIRED" && (
-            <div className="continue-application">
+            <div className="continue-application priority-action">
               <div className="callout warning">
                 <CircleAlert size={20} />
                 <div>
-                  <strong>Application Paused - Additional Information Required</strong>
+                  <strong>Additional Information Required</strong>
                   <p>
-                    This case is not in Human Review. Upload the missing evidence below to continue the same application and keep the same Case ID.
+                    {latest.missing_documents?.length
+                      ? `Missing: ${latest.missing_documents.join(", ")}. Upload the requested document to continue this same case.`
+                      : "Upload the requested evidence to continue this same case."}
                   </p>
                 </div>
               </div>
               <MissingDocumentUpload
-                result={{
-                  vendor_id: vendor.id,
-                  missing_documents: latest.missing_documents || [],
-                }}
+                result={{ vendor_id: vendor.id, missing_documents: latest.missing_documents || [] }}
                 config={config}
-                title="Continue Application"
+                title="Upload Missing Documents"
                 compact
                 onUpdated={async () => {
                   await load();
@@ -1117,6 +1124,16 @@ function CaseDetail({ vendorId, config, onBack }) {
               />
             </div>
           )}
+
+          <div className="metric-grid case-metrics">
+            <Metric label={vendor.status === "ACTION_REQUIRED" ? "Extraction Confidence" : "Verification Confidence"} value={formatPercent(latest.confidence_score)} icon={BarChart3} />
+            {vendor.risk_level && <Metric label="Risk Level" value={titleCase(vendor.risk_level)} icon={AlertTriangle} tone={vendor.risk_level === "HIGH" ? "danger" : vendor.risk_level === "MEDIUM" ? "warning" : "neutral"} />}
+            {vendor.category && <Metric label="Category" value={vendor.category} icon={ClipboardList} />}
+            {vendor.region && <Metric label="Region" value={vendor.region} icon={Building2} />}
+            {vendor.last_reviewer && <Metric label="Last Reviewer" value={vendor.last_reviewer} icon={UserCheck} />}
+            <Metric label="Last Updated" value={formatDate(vendor.updated_at)} icon={History} />
+          </div>
+          {vendor.reasons?.length > 0 && <div className="panel decision-panel"><div className="panel-title"><AlertTriangle size={18} /> Decision Explanation</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
 
           <div className="two-column">
             <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation Checks</div><CheckList checks={latest.checks || []} /></div>
@@ -1208,9 +1225,9 @@ function ReviewCase({ vendorId, config, onCompleted, notify }) {
   const latest = detail.agent_runs?.[0] || {};
   return (
     <div className="page-stack">
-      <div className="result-hero danger">
+      <div className="result-hero warning review-hero">
         <div className="result-hero-icon"><UserCheck size={28} /></div>
-        <div className="result-hero-copy"><div className="eyebrow">Human Review</div><h2>{vendor.legal_name}</h2><div className="pill-row"><StatusPill value={vendor.status} /><span className="recommendation">Agent Recommendation: <strong>{formatStatus(vendor.agent_recommendation)}</strong></span></div></div>
+        <div className="result-hero-copy"><div className="eyebrow">Human Review</div><h2>{vendor.legal_name}</h2><div className="pill-row"><StatusPill value={vendor.status} /><span className="recommendation">Agent Recommendation: <strong>{formatStatus(vendor.agent_recommendation)}</strong></span><span className="recommendation">Confidence: <strong>{formatPercent(latest.confidence_score)}</strong></span>{vendor.risk_level && <span className="recommendation">Risk: <strong>{titleCase(vendor.risk_level)}</strong></span>}</div></div>
       </div>
       {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Why This Case Needs Review</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
       <div className="two-column">
@@ -1226,7 +1243,7 @@ function ReviewCase({ vendorId, config, onCompleted, notify }) {
         </div>
         {error && <div className="form-error"><XCircle size={18} />{error}</div>}
         <div className="review-actions">
-          <button className="ghost-button" disabled={reviewBusy} onClick={() => decide("REQUEST_INFORMATION")}><CircleAlert size={17} /> Request information</button>
+          <button className="ghost-button" disabled={reviewBusy} onClick={() => decide("REQUEST_INFORMATION")}><CircleAlert size={17} /> Request Information</button>
           <button className="danger-button" disabled={reviewBusy} onClick={() => decide("REJECT")}><XCircle size={17} /> Reject</button>
           <button className="primary-button" disabled={reviewBusy} onClick={() => decide("APPROVE")}><CheckCircle2 size={17} /> Approve</button>
         </div>
@@ -1269,12 +1286,17 @@ function ReviewQueueView({ config, notify }) {
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
       <div className="review-layout">
         <aside className="panel review-sidebar">
-          <div className="search-field"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search review cases" /></div>
+          <div className="search-field"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Review Cases" /></div>
           {busy ? <div className="loading-inline"><RefreshCw className="spin" size={16} /> Loading…</div> : filtered.length ? (
             <div className="review-case-list">
               {filtered.map((row) => (
                 <button className={selected === row.id ? "active" : ""} key={row.id} onClick={() => setSelected(row.id)}>
-                  <div><strong>{row.legal_name}</strong><span>{row.reasons?.[0] || "Manual review required."}</span></div><ChevronRight size={16} />
+                  <div className="review-case-copy">
+                    <div className="review-case-title"><strong>{row.legal_name}</strong><StatusPill value={row.status} /></div>
+                    <span>{row.reasons?.[0] || "Manual Review Required."}</span>
+                    <small>{row.risk_level ? `${titleCase(row.risk_level)} Risk · ` : ""}{formatPercent(row.confidence_score)} Confidence</small>
+                  </div>
+                  <ChevronRight size={16} />
                 </button>
               ))}
             </div>
@@ -1450,8 +1472,8 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <span>Verification data and workflow status are loaded from the backend.</span>
-        <span>OCR → Groq → verification providers → deterministic routing → human review</span>
+        <span>Vendor Verification Workspace</span>
+        <span>Document Intake · Verification · Human Review</span>
       </footer>
     </div>
   );
