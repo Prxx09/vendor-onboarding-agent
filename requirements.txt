@@ -14,6 +14,7 @@ pytest-asyncio>=0.24
 
 # Windows built-in OCR (installed only on Windows).
 winrt-runtime>=3.2.1; sys_platform == "win32"
+winrt-Windows.Foundation>=3.2.1; sys_platform == "win32"
 winrt-Windows.Media.Ocr>=3.2.1; sys_platform == "win32"
 winrt-Windows.Graphics.Imaging>=3.2.1; sys_platform == "win32"
 winrt-Windows.Storage.Streams>=3.2.1; sys_platform == "win32"
