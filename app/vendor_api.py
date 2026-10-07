@@ -7,7 +7,26 @@ from pydantic import BaseModel
 from app import storage
 from app.data import add_audit, create_case_from_intake, find_case, list_audit, list_cases
 from app.extraction import extract_documents
-from app.main import _validate_documents, LOCAL_FILES
+from pathlib import Path
+
+MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_TOTAL_SIZE = 30 * 1024 * 1024
+MAX_DOCUMENTS = 8
+SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".docx", ".txt"}
+
+def _validate_documents(documents: list[tuple[str, bytes, str]]) -> None:
+    if not documents:
+        raise HTTPException(status_code=422, detail="Upload at least one vendor document")
+    if len(documents) > MAX_DOCUMENTS:
+        raise HTTPException(status_code=413, detail=f"A maximum of {MAX_DOCUMENTS} documents is allowed")
+    if sum(len(content) for _, content, _ in documents) > MAX_TOTAL_SIZE:
+        raise HTTPException(status_code=413, detail="Combined documents exceed 30 MB")
+    for name, content, _ in documents:
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail=f"{name} exceeds 10 MB")
+        if Path(name).suffix.lower() not in SUPPORTED_EXTENSIONS:
+            raise HTTPException(status_code=415, detail=f"Unsupported document type: {name}")
+
 
 router = APIRouter(prefix="/api/v1/vendors", tags=["vendors"])
 
