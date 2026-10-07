@@ -24,6 +24,7 @@ import {
   getVendor,
   processVendor,
   reviewVendor,
+  uploadVendorDocuments,
 } from "./api";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -152,7 +153,71 @@ function ExtractionCard({ item }) {
   );
 }
 
-function ResultPanel({ result, onReset }) {
+
+function MissingDocumentUpload({ result, onUpdated }) {
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!files.length) {
+      setError("Choose at least one missing document.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await uploadVendorDocuments(result.vendor_id, files);
+      onUpdated(updated);
+    } catch (err) {
+      setError(err.message || "Could not upload the missing document.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="panel upload-panel" onSubmit={submit}>
+      <div className="panel-title"><UploadCloud size={19} /> Continue this onboarding case</div>
+      <p>
+        Upload only the missing document(s): {result.missing_documents.join(", ")}.
+        Existing verified documents will be reused and the same vendor ID will continue.
+      </p>
+      <label className="primary-button file-button">
+        Choose missing document
+        <input
+          type="file"
+          multiple
+          accept=".pdf,.png,.jpg,.jpeg,.webp"
+          onChange={(event) => setFiles(Array.from(event.target.files || []))}
+        />
+      </label>
+      {files.length > 0 && (
+        <div className="file-list">
+          {files.map((file) => (
+            <div className="file-row" key={`${file.name}-${file.size}`}>
+              <FileText size={18} />
+              <div className="file-meta">
+                <strong>{file.name}</strong>
+                <span>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {error && <div className="form-error"><XCircle size={18} />{error}</div>}
+      <button className="primary-button submit-button" disabled={busy || !files.length}>
+        {busy
+          ? <><RefreshCw className="spin" size={18} /> Re-running verification…</>
+          : <><SearchCheck size={18} /> Upload and continue verification</>}
+      </button>
+    </form>
+  );
+}
+
+function ResultPanel({ result, onReset, onUpdated }) {
   if (!result) return null;
   const verified = result.checks?.filter((item) => item.status === "VERIFIED").length || 0;
   const flagged = (result.checks?.length || 0) - verified;
@@ -189,6 +254,10 @@ function ResultPanel({ result, onReset }) {
             <p>Missing: {result.missing_documents.join(", ")}</p>
           </div>
         </div>
+      )}
+
+      {result.overall_status === "ACTION_REQUIRED" && (
+        <MissingDocumentUpload result={result} onUpdated={onUpdated} />
       )}
 
       {result.reasons?.length > 0 && result.overall_status !== "APPROVED" && (
@@ -276,12 +345,21 @@ function VerifyView() {
   };
 
   if (result) {
-    return <ResultPanel result={result} onReset={() => {
-      setResult(null);
-      sessionStorage.removeItem("vendor-verification:last-result");
-      setFiles([]);
-      setLegalName("");
-    }} />;
+    return <ResultPanel
+      result={result}
+      onUpdated={(updated) => {
+        setResult(updated);
+        sessionStorage.setItem("vendor-verification:last-result", JSON.stringify(updated));
+        setFiles([]);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }}
+      onReset={() => {
+        setResult(null);
+        sessionStorage.removeItem("vendor-verification:last-result");
+        setFiles([]);
+        setLegalName("");
+      }}
+    />;
   }
 
   return (

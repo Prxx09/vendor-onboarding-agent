@@ -131,6 +131,13 @@ Multipart fields:
 - legal_name: optional vendor-submitted legal name
 - files: multiple PDF/JPG/PNG files
 
+POST /api/v1/vendors/{vendor_id}/documents
+
+Multipart field:
+- files: one or more missing documents for an existing ACTION_REQUIRED vendor
+
+The endpoint reuses the documents already stored for that vendor, processes only the newly uploaded files, reruns completeness and verification, and keeps the same vendor ID.
+
 GET /api/v1/vendors/review-queue
 
 POST /api/v1/vendors/{vendor_id}/review

@@ -36,6 +36,18 @@ export async function processVendor({ legalName, files }) {
   );
 }
 
+export async function uploadVendorDocuments(vendorId, files) {
+  const form = new FormData();
+  files.forEach((file) => form.append("files", file));
+
+  return parseResponse(
+    await fetch(`${API_BASE_URL}/api/v1/vendors/${vendorId}/documents`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
 export async function getReviewQueue() {
   return parseResponse(
     await fetch(`${API_BASE_URL}/api/v1/vendors/review-queue`),

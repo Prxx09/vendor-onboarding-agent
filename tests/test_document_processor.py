@@ -20,7 +20,7 @@ class FakeOcr(OcrProvider):
 async def test_pdf_prefers_embedded_text(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test")
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("GROQ_API_KEY", "test")
 
     doc = pymupdf.open()
     page = doc.new_page()
@@ -49,7 +49,7 @@ async def test_pdf_prefers_embedded_text(monkeypatch):
 async def test_image_uses_ocr(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test")
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("GROQ_API_KEY", "test")
 
     ocr = FakeOcr("Account Holder: Crestline Trading House")
     processor = DocumentProcessor(ocr)
@@ -64,7 +64,7 @@ async def test_image_uses_ocr(monkeypatch):
 async def test_scanned_pdf_falls_back_to_ocr(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test")
-    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    monkeypatch.setenv("GROQ_API_KEY", "test")
 
     doc = pymupdf.open()
     doc.new_page()

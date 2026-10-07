@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
+
 from supabase import Client, create_client
 
 from app.core.config import get_settings
-from app.domain.models import HumanReviewRequest, VendorProcessResult
+from app.domain.models import DocumentExtraction, HumanReviewRequest, VendorProcessResult
 
 
 class VendorRepository:
@@ -12,7 +14,11 @@ class VendorRepository:
             settings.SUPABASE_SERVICE_ROLE_KEY,
         )
 
-    async def save_result(self, result: VendorProcessResult) -> None:
+    async def save_result(
+        self,
+        result: VendorProcessResult,
+        documents: list[DocumentExtraction] | None = None,
+    ) -> None:
         self.db.table("verification_vendors").upsert(
             {
                 "id": result.vendor_id,
@@ -20,6 +26,7 @@ class VendorRepository:
                 "status": result.overall_status,
                 "agent_recommendation": result.recommendation,
                 "reasons": result.reasons,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         ).execute()
 
@@ -34,7 +41,8 @@ class VendorRepository:
             }
         ).execute()
 
-        if result.extractions:
+        documents_to_save = result.extractions if documents is None else documents
+        if documents_to_save:
             rows = [
                 {
                     "vendor_id": result.vendor_id,
@@ -43,7 +51,7 @@ class VendorRepository:
                     "confidence": item.confidence,
                     "extracted_data": item.model_dump(mode="json"),
                 }
-                for item in result.extractions
+                for item in documents_to_save
             ]
             self.db.table("verification_vendor_documents").insert(rows).execute()
 
@@ -72,6 +80,7 @@ class VendorRepository:
             self.db.table("verification_vendor_documents")
             .select("*")
             .eq("vendor_id", vendor_id)
+            .order("created_at")
             .execute()
         )
         runs = (
@@ -109,6 +118,7 @@ class VendorRepository:
                 {
                     "status": final_status,
                     "human_decision": review.decision,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
             .eq("id", vendor_id)

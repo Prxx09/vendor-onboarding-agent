@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.agent.vendor_agent import VendorVerificationAgent
-from app.domain.models import HumanReviewRequest, VendorProcessResult
+from app.domain.models import DocumentExtraction, HumanReviewRequest, VendorProcessResult
 from app.ocr.factory import get_ocr_provider
 from app.providers.factory import get_verification_provider
 from app.repositories.vendor_repository import VendorRepository
@@ -25,11 +25,7 @@ def _agent() -> VendorVerificationAgent:
     )
 
 
-@router.post("/vendors/process", response_model=VendorProcessResult)
-async def process_vendor(
-    legal_name: str = Form(default=""),
-    files: list[UploadFile] = File(...),
-):
+async def _read_uploads(files: list[UploadFile]) -> list[dict]:
     if not files:
         raise HTTPException(status_code=400, detail="At least one document is required.")
 
@@ -65,7 +61,50 @@ async def process_vendor(
             }
         )
 
+    return payloads
+
+
+@router.post("/vendors/process", response_model=VendorProcessResult)
+async def process_vendor(
+    legal_name: str = Form(default=""),
+    files: list[UploadFile] = File(...),
+):
+    payloads = await _read_uploads(files)
     return await _agent().run(legal_name=legal_name, files=payloads)
+
+
+@router.post("/vendors/{vendor_id}/documents", response_model=VendorProcessResult)
+async def add_vendor_documents(
+    vendor_id: str,
+    files: list[UploadFile] = File(...),
+):
+    repository = _repository()
+    detail = await repository.get_vendor(vendor_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Vendor not found.")
+
+    current_status = detail["vendor"].get("status")
+    if current_status != "ACTION_REQUIRED":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Documents can only be added to an ACTION_REQUIRED vendor. "
+                f"Current status: {current_status}"
+            ),
+        )
+
+    payloads = await _read_uploads(files)
+    existing_extractions = [
+        DocumentExtraction.model_validate(document["extracted_data"])
+        for document in detail.get("documents", [])
+    ]
+
+    return await _agent().run(
+        legal_name=detail["vendor"].get("legal_name", ""),
+        files=payloads,
+        vendor_id=vendor_id,
+        existing_extractions=existing_extractions,
+    )
 
 
 @router.get("/vendors/review-queue")

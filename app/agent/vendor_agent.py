@@ -23,6 +23,8 @@ class AgentState(TypedDict, total=False):
     submitted_legal_name: str
     files: list[dict]
     extractions: list[DocumentExtraction]
+    existing_extractions: list[DocumentExtraction]
+    new_extractions: list[DocumentExtraction]
     missing_documents: list[str]
     checks: list[VerificationEvidence]
     reasons: list[str]
@@ -92,15 +94,30 @@ class VendorVerificationAgent:
         graph.add_edge("persist", END)
         return graph.compile()
 
-    async def run(self, legal_name: str, files: list[dict]) -> VendorProcessResult:
+    async def run(
+        self,
+        legal_name: str,
+        files: list[dict],
+        vendor_id: str | None = None,
+        existing_extractions: list[DocumentExtraction] | None = None,
+    ) -> VendorProcessResult:
+        previous = list(existing_extractions or [])
+        is_resume = vendor_id is not None
+        intake_message = (
+            f"Resumed vendor with {len(previous)} existing document(s) and "
+            f"received {len(files)} new document(s)."
+            if is_resume
+            else f"Received {len(files)} document(s)."
+        )
         initial: AgentState = {
-            "vendor_id": str(uuid4()),
+            "vendor_id": vendor_id or str(uuid4()),
             "submitted_legal_name": legal_name.strip(),
             "files": files,
+            "existing_extractions": previous,
             "events": [
                 AgentEvent(
                     step="intake",
-                    message=f"Received {len(files)} document(s).",
+                    message=intake_message,
                 )
             ],
         }
@@ -135,7 +152,7 @@ class VendorVerificationAgent:
             return_exceptions=True,
         )
 
-        extractions: list[DocumentExtraction] = []
+        new_extractions: list[DocumentExtraction] = []
         events = list(state.get("events", []))
         reasons = list(state.get("reasons", []))
 
@@ -151,7 +168,7 @@ class VendorVerificationAgent:
                 continue
 
             structured, document_text = result
-            extractions.append(structured)
+            new_extractions.append(structured)
             events.append(
                 AgentEvent(
                     step="document_extraction",
@@ -165,7 +182,11 @@ class VendorVerificationAgent:
             )
 
         return {
-            "extractions": extractions,
+            "extractions": [
+                *state.get("existing_extractions", []),
+                *new_extractions,
+            ],
+            "new_extractions": new_extractions,
             "events": events,
             "reasons": reasons,
         }
@@ -222,7 +243,7 @@ class VendorVerificationAgent:
         return next(
             (
                 item
-                for item in state.get("extractions", [])
+                for item in reversed(state.get("extractions", []))
                 if item.document_type == doc_type
             ),
             None,
@@ -408,7 +429,10 @@ class VendorVerificationAgent:
             reasons=state.get("reasons", []),
             events=state.get("events", []),
         )
-        await self.repository.save_result(result)
+        await self.repository.save_result(
+            result,
+            documents=state.get("new_extractions", result.extractions),
+        )
         events = list(state.get("events", []))
         events.append(
             AgentEvent(
