@@ -13,7 +13,7 @@ class VendorRepository:
         )
 
     async def save_result(self, result: VendorProcessResult) -> None:
-        self.db.table("vendors").upsert(
+        self.db.table("verification_vendors").upsert(
             {
                 "id": result.vendor_id,
                 "legal_name": result.vendor_name,
@@ -23,7 +23,7 @@ class VendorRepository:
             }
         ).execute()
 
-        self.db.table("agent_runs").insert(
+        self.db.table("verification_agent_runs").insert(
             {
                 "vendor_id": result.vendor_id,
                 "status": result.overall_status,
@@ -45,11 +45,11 @@ class VendorRepository:
                 }
                 for item in result.extractions
             ]
-            self.db.table("vendor_documents").insert(rows).execute()
+            self.db.table("verification_vendor_documents").insert(rows).execute()
 
     async def list_review_queue(self) -> list[dict]:
         result = (
-            self.db.table("vendors")
+            self.db.table("verification_vendors")
             .select("*")
             .eq("status", "REVIEW_REQUIRED")
             .order("created_at", desc=True)
@@ -59,7 +59,7 @@ class VendorRepository:
 
     async def get_vendor(self, vendor_id: str) -> dict | None:
         vendor = (
-            self.db.table("vendors")
+            self.db.table("verification_vendors")
             .select("*")
             .eq("id", vendor_id)
             .limit(1)
@@ -69,13 +69,13 @@ class VendorRepository:
             return None
 
         docs = (
-            self.db.table("vendor_documents")
+            self.db.table("verification_vendor_documents")
             .select("*")
             .eq("vendor_id", vendor_id)
             .execute()
         )
         runs = (
-            self.db.table("agent_runs")
+            self.db.table("verification_agent_runs")
             .select("*")
             .eq("vendor_id", vendor_id)
             .order("created_at", desc=True)
@@ -94,7 +94,7 @@ class VendorRepository:
     ) -> dict:
         final_status = "APPROVED" if review.decision == "APPROVE" else "REJECTED"
 
-        self.db.table("review_decisions").insert(
+        self.db.table("verification_review_decisions").insert(
             {
                 "vendor_id": vendor_id,
                 "decision": review.decision,
@@ -104,7 +104,7 @@ class VendorRepository:
         ).execute()
 
         updated = (
-            self.db.table("vendors")
+            self.db.table("verification_vendors")
             .update(
                 {
                     "status": final_status,
