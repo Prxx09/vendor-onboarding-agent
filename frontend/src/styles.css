@@ -1036,3 +1036,43 @@ select:focus-visible,
   .result-hero .ghost-button { width: 100%; }
   .footer { display: none; }
 }
+
+
+/* Global Vendor Master */
+.master-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.master-filter-toolbar .search-field {
+  flex: 1 1 320px;
+}
+.master-filter-toolbar select {
+  min-width: 150px;
+}
+.category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.category-list > span:not(.registered-only),
+.category-suggestion {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--surface);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.category-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 14px;
+}
+.category-suggestion {
+  cursor: pointer;
+}

@@ -60,9 +60,39 @@ export async function getDashboard() {
   return parseResponse(await fetch(`${API_BASE_URL}/api/v1/dashboard`));
 }
 
-export async function listMasterVendors() {
+export async function listMasterVendors({
+  query = "",
+  status = "",
+  category = "",
+  region = "",
+  verificationStatus = "",
+  kycStatus = "",
+  bankVerificationStatus = "",
+} = {}) {
   return parseResponse(
-    await fetch(`${API_BASE_URL}/api/v1/master-vendors`),
+    await fetch(withQuery("/api/v1/master-vendors", {
+      query,
+      status,
+      category,
+      region,
+      verification_status: verificationStatus,
+      kyc_status: kycStatus,
+      bank_verification_status: bankVerificationStatus,
+    })),
+  );
+}
+
+export async function getMasterVendor(vendorCode) {
+  return parseResponse(
+    await fetch(API_BASE_URL + "/api/v1/master-vendors/" + encodeURIComponent(vendorCode)),
+  );
+}
+
+export async function syncApprovedMasterVendors() {
+  return parseResponse(
+    await fetch(API_BASE_URL + "/api/v1/master-vendors/sync-approved", {
+      method: "POST",
+    }),
   );
 }
 

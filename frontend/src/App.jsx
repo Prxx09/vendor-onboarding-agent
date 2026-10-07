@@ -49,12 +49,13 @@ const AUTO_EXTRACT_FIELDS = [
   "ifsc",
   "registered_address",
   "contact_email",
-  "category",
+  "categories",
 ];
 
 const statusTone = {
   APPROVED: "success",
   VERIFIED: "success",
+  VERIFIED_WITH_OVERRIDE: "success",
   PASS: "success",
   ACTION_REQUIRED: "warning",
   REVIEW: "warning",
@@ -74,6 +75,8 @@ const statusTone = {
   EXPIRED: "danger",
   PENDING_REVIEW: "warning",
   NOT_AVAILABLE: "neutral",
+  SUSPENDED: "warning",
+  BLOCKED: "danger",
 };
 
 const statusLabel = {
@@ -476,7 +479,7 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
 
 function MasterVendorTable({ rows, onOpenCase }) {
   const openRow = (row) => {
-    if (row.case_id) onOpenCase(row.case_id);
+    if (row.source_case_id) onOpenCase(row.source_case_id);
   };
 
   return (
@@ -485,23 +488,24 @@ function MasterVendorTable({ rows, onOpenCase }) {
         <thead>
           <tr>
             <th>Vendor</th>
-            <th>Category</th>
+            <th>Categories</th>
             <th>Region</th>
-            <th>Registration</th>
-            <th>KYC</th>
-            <th>Onboarding</th>
+            <th>Verification</th>
+            <th>KYC / KYB</th>
+            <th>Bank</th>
+            <th>Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr
-              key={row.registration_number || row.legal_name}
-              className={row.case_id ? "clickable-row" : ""}
-              tabIndex={row.case_id ? 0 : undefined}
+              key={row.vendor_code}
+              className={row.source_case_id ? "clickable-row" : ""}
+              tabIndex={row.source_case_id ? 0 : undefined}
               onClick={() => openRow(row)}
               onKeyDown={(event) => {
-                if (row.case_id && (event.key === "Enter" || event.key === " ")) {
+                if (row.source_case_id && (event.key === "Enter" || event.key === " ")) {
                   event.preventDefault();
                   openRow(row);
                 }
@@ -509,17 +513,32 @@ function MasterVendorTable({ rows, onOpenCase }) {
             >
               <td>
                 <strong>{row.legal_name}</strong>
-                <div className="table-subtext mono">{row.registration_number || "No Registration Number"}</div>
+                <div className="table-subtext mono">{row.vendor_code}</div>
                 {row.tax_id && <div className="table-subtext">Tax ID: {row.tax_id}</div>}
+                {row.primary_contact_email && <div className="table-subtext">{row.primary_contact_email}</div>}
               </td>
-              <td>{row.vendor_category || "—"}</td>
-              <td>{row.region || row.country || "—"}</td>
-              <td><StatusPill value={row.registration_status || "REGISTERED"} /></td>
-              <td><StatusPill value={row.kyc_status || "NOT_AVAILABLE"} /></td>
-              <td>{row.case_status ? <StatusPill value={row.case_status} /> : <span className="registered-only">Registered Only</span>}</td>
               <td>
-                {row.case_id
-                  ? <button className="icon-button row-action" aria-label={`Open ${row.legal_name} onboarding case`} onClick={(event) => { event.stopPropagation(); onOpenCase(row.case_id); }}><ChevronRight size={18} /></button>
+                <div className="category-list">
+                  {(row.categories || []).length
+                    ? row.categories.map((category) => <span key={category}>{category}</span>)
+                    : <span className="registered-only">Uncategorized</span>}
+                </div>
+              </td>
+              <td>{row.region || "—"}</td>
+              <td><StatusPill value={row.verification_status || "NOT_AVAILABLE"} /></td>
+              <td><StatusPill value={row.kyc_status || "NOT_AVAILABLE"} /></td>
+              <td><StatusPill value={row.bank_verification_status || "NOT_AVAILABLE"} /></td>
+              <td><StatusPill value={row.status || "ACTIVE"} /></td>
+              <td>
+                {row.source_case_id
+                  ? <button
+                      className="icon-button row-action"
+                      aria-label={"Open " + row.legal_name + " onboarding case"}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenCase(row.source_case_id);
+                      }}
+                    ><ChevronRight size={18} /></button>
                   : null}
               </td>
             </tr>
@@ -531,8 +550,14 @@ function MasterVendorTable({ rows, onOpenCase }) {
 }
 function DashboardView({ onOpenCase }) {
   const [data, setData] = useState(null);
-  const [registeredVendors, setRegisteredVendors] = useState([]);
+  const [masterVendors, setMasterVendors] = useState([]);
   const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [category, setCategory] = useState("");
+  const [region, setRegion] = useState("");
+  const [verificationStatus, setVerificationStatus] = useState("");
+  const [kycStatus, setKycStatus] = useState("");
+  const [bankStatus, setBankStatus] = useState("");
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
 
@@ -542,7 +567,7 @@ function DashboardView({ onOpenCase }) {
     try {
       const [dashboard, master] = await Promise.all([getDashboard(), listMasterVendors()]);
       setData(dashboard);
-      setRegisteredVendors(master);
+      setMasterVendors(master);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -552,38 +577,62 @@ function DashboardView({ onOpenCase }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const visibleVendors = registeredVendors.filter((row) => {
+  const categories = Array.from(new Set(masterVendors.flatMap((row) => row.categories || []))).sort();
+  const regions = Array.from(new Set(masterVendors.map((row) => row.region).filter(Boolean))).sort();
+  const verificationStatuses = Array.from(new Set(masterVendors.map((row) => row.verification_status).filter(Boolean))).sort();
+  const kycStatuses = Array.from(new Set(masterVendors.map((row) => row.kyc_status).filter(Boolean))).sort();
+  const bankStatuses = Array.from(new Set(masterVendors.map((row) => row.bank_verification_status).filter(Boolean))).sort();
+
+  const visibleVendors = masterVendors.filter((row) => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return true;
-    return [
+    const searchMatch = !needle || [
+      row.vendor_code,
       row.legal_name,
       row.registration_number,
       row.tax_id,
-      row.vendor_category,
+      row.primary_contact_name,
+      row.primary_contact_email,
       row.region,
-      row.country,
+      ...(row.categories || []),
     ].some((value) => String(value || "").toLowerCase().includes(needle));
+
+    return searchMatch
+      && (!status || row.status === status)
+      && (!category || (row.categories || []).includes(category))
+      && (!region || row.region === region)
+      && (!verificationStatus || row.verification_status === verificationStatus)
+      && (!kycStatus || row.kyc_status === kycStatus)
+      && (!bankStatus || row.bank_verification_status === bankStatus);
   });
+
+  const activeCount = masterVendors.filter((row) => row.status === "ACTIVE").length;
 
   return (
     <section className="page-stack">
       <div className="section-heading">
         <div>
-          <div className="eyebrow">Vendor Master</div>
+          <div className="eyebrow">Global Vendor Master</div>
           <h1>Master Dashboard</h1>
-          <p>All vendors registered in the verification reference master, together with their current onboarding status.</p>
+          <p>Approved vendors promoted into the shared Supabase Vendor Master for reuse across Finance, Procurement and other teams.</p>
         </div>
-        <button className="ghost-button" onClick={load} disabled={busy}><RefreshCw className={busy ? "spin" : ""} size={17} /> Refresh</button>
+        <button className="ghost-button" onClick={load} disabled={busy}>
+          <RefreshCw className={busy ? "spin" : ""} size={17} /> Refresh
+        </button>
       </div>
+
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
-      {busy && !data ? <div className="loading-card"><RefreshCw className="spin" /> Loading Master Dashboard…</div> : (
+
+      {busy && !data ? (
+        <div className="loading-card"><RefreshCw className="spin" /> Loading Global Vendor Master…</div>
+      ) : (
         <>
           <div className="metric-grid dashboard-metrics">
-            <Metric label="Registered Vendors" value={data?.registered_vendor_count ?? registeredVendors.length} icon={Building2} />
-            <Metric label="Approved Vendors" value={data?.approved_cases} icon={CheckCircle2} tone="success" />
+            <Metric label="Master Vendors" value={data?.registered_vendor_count ?? masterVendors.length} icon={Building2} />
+            <Metric label="Active Vendors" value={activeCount} icon={CheckCircle2} tone="success" />
             <Metric label="Needs Human Review" value={data?.review_required_cases} icon={UserCheck} tone="warning" />
             <Metric label="Needs Information" value={data?.action_required_cases} icon={CircleAlert} tone="warning" />
           </div>
+
           <div className="dashboard-summary-strip">
             <div><span>Onboarding Cases</span><strong>{data?.total_cases ?? "—"}</strong></div>
             <div><span>Approval Rate</span><strong>{formatPercent(data?.approval_rate)}</strong></div>
@@ -592,19 +641,56 @@ function DashboardView({ onOpenCase }) {
             <div><span>Recently Updated</span><strong>{formatDate(data?.recently_updated_at)}</strong></div>
           </div>
 
-          <div className="toolbar panel master-toolbar">
+          <div className="toolbar panel master-toolbar master-filter-toolbar">
             <div className="search-field">
               <Search size={17} />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search Registered Vendor, Registration No. Or Tax ID" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search Vendor, Vendor ID, Tax ID, Category Or Contact"
+              />
             </div>
-            <span className="master-count">{visibleVendors.length} Of {registeredVendors.length} Vendors</span>
+
+            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="">All Statuses</option>
+              {["ACTIVE", "SUSPENDED", "BLOCKED", "EXPIRED"].map((value) => (
+                <option value={value} key={value}>{titleCase(value)}</option>
+              ))}
+            </select>
+
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">All Categories</option>
+              {categories.map((value) => <option value={value} key={value}>{value}</option>)}
+            </select>
+
+            <select value={region} onChange={(e) => setRegion(e.target.value)}>
+              <option value="">All Regions</option>
+              {regions.map((value) => <option value={value} key={value}>{value}</option>)}
+            </select>
+
+            <select value={verificationStatus} onChange={(e) => setVerificationStatus(e.target.value)}>
+              <option value="">All Verification</option>
+              {verificationStatuses.map((value) => <option value={value} key={value}>{titleCase(value)}</option>)}
+            </select>
+
+            <select value={kycStatus} onChange={(e) => setKycStatus(e.target.value)}>
+              <option value="">All KYC/KYB</option>
+              {kycStatuses.map((value) => <option value={value} key={value}>{titleCase(value)}</option>)}
+            </select>
+
+            <select value={bankStatus} onChange={(e) => setBankStatus(e.target.value)}>
+              <option value="">All Bank Status</option>
+              {bankStatuses.map((value) => <option value={value} key={value}>{titleCase(value)}</option>)}
+            </select>
+
+            <span className="master-count">{visibleVendors.length} Of {masterVendors.length} Vendors</span>
           </div>
 
           <div className="panel">
-            <div className="panel-title"><Building2 size={19} /> Registered Vendor Master</div>
+            <div className="panel-title"><Building2 size={19} /> Global Vendor Master</div>
             {visibleVendors.length
               ? <MasterVendorTable rows={visibleVendors} onOpenCase={onOpenCase} />
-              : <EmptyState title="No Registered Vendors Found" copy="No vendor matches the current search." icon={Building2} />}
+              : <EmptyState title="No Master Vendors Found" copy="No approved vendor matches the current filters." icon={Building2} />}
           </div>
         </>
       )}
@@ -729,8 +815,10 @@ function NewVendorView({ config, notify }) {
     bank_account: "",
     ifsc: "",
     registered_address: "",
+    contact_name: "",
     contact_email: "",
-    category: "",
+    contact_phone: "",
+    categories: "",
     region: "",
     submitted_by: "",
     compliance_confirmed: false,
@@ -1005,12 +1093,31 @@ function NewVendorView({ config, notify }) {
             {renderInput("bank_account", "Bank account")}
             {renderInput("ifsc", "IFSC / SWIFT")}
             {renderInput("registered_address", "Registered address")}
-            {renderInput("contact_email", "Contact email", { type: "email" })}
-            {renderInput("category", "Vendor category", { list: "category-options" })}
+            {renderInput("contact_name", "Primary contact name")}
+            {renderInput("contact_email", "Primary contact email", { type: "email" })}
+            {renderInput("contact_phone", "Primary contact phone")}
+            {renderInput("categories", "Categories / capabilities", { placeholder: "IT Hardware, Laptops, Networking" })}
             {renderInput("region", "Region", { list: "region-options" })}
             {renderInput("submitted_by", "Submitted by")}
           </div>
-          <datalist id="category-options">{(config?.intake?.categories || []).map((value) => <option value={value} key={value} />)}</datalist>
+          <div className="category-suggestions">
+            {(config?.intake?.categories || []).map((value) => (
+              <button
+                type="button"
+                className="category-suggestion"
+                key={value}
+                onClick={() => {
+                  const current = fields.categories
+                    .split(",")
+                    .map((item) => item.trim())
+                    .filter(Boolean);
+                  if (!current.some((item) => item.toLowerCase() === value.toLowerCase())) {
+                    updateField("categories", [...current, value].join(", "));
+                  }
+                }}
+              >+ {value}</button>
+            ))}
+          </div>
           <datalist id="region-options">{(config?.intake?.regions || []).map((value) => <option value={value} key={value} />)}</datalist>
 
           <label className="compliance-row">
@@ -1128,7 +1235,13 @@ function CaseDetail({ vendorId, config, onBack }) {
           <div className="metric-grid case-metrics">
             <Metric label={vendor.status === "ACTION_REQUIRED" ? "Extraction Confidence" : "Verification Confidence"} value={formatPercent(latest.confidence_score)} icon={BarChart3} />
             {vendor.risk_level && <Metric label="Risk Level" value={titleCase(vendor.risk_level)} icon={AlertTriangle} tone={vendor.risk_level === "HIGH" ? "danger" : vendor.risk_level === "MEDIUM" ? "warning" : "neutral"} />}
-            {vendor.category && <Metric label="Category" value={vendor.category} icon={ClipboardList} />}
+            {(vendor.categories?.length || vendor.category) && (
+              <Metric
+                label="Categories"
+                value={(vendor.categories || [vendor.category]).filter(Boolean).join(", ")}
+                icon={ClipboardList}
+              />
+            )}
             {vendor.region && <Metric label="Region" value={vendor.region} icon={Building2} />}
             {vendor.last_reviewer && <Metric label="Last Reviewer" value={vendor.last_reviewer} icon={UserCheck} />}
             <Metric label="Last Updated" value={formatDate(vendor.updated_at)} icon={History} />
