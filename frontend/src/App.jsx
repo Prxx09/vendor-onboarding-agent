@@ -138,10 +138,10 @@ function Metric({ label, value, icon: Icon, tone = "neutral", helper }) {
 function Toast({ toast, onClose }) {
   if (!toast) return null;
   return (
-    <div className={`toast ${toast.tone || "success"}`}>
+    <div className={`toast ${toast.tone || "success"}`} role="status" aria-live="polite">
       {toast.tone === "danger" ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
       <span>{toast.message}</span>
-      <button onClick={onClose}><X size={16} /></button>
+      <button onClick={onClose} aria-label="Dismiss Notification"><X size={16} /></button>
     </div>
   );
 }
@@ -967,7 +967,7 @@ function NewVendorView({ config, notify }) {
                 <div className="file-row" key={`${file.name}-${file.size}`}>
                   <FileText size={18} />
                   <div className="file-meta"><strong>{file.name}</strong><span>{(file.size / 1024 / 1024).toFixed(2)} MB</span></div>
-                  <button type="button" className="icon-button" onClick={() => setFiles((items) => items.filter((item) => item !== file))}><X size={17} /></button>
+                  <button type="button" className="icon-button" aria-label={`Remove ${file.name}`} onClick={() => setFiles((items) => items.filter((item) => item !== file))}><X size={17} /></button>
                 </div>
               ))}
             </div>
@@ -1447,7 +1447,7 @@ export default function App() {
     <div className="app-shell">
       <Toast toast={toast} onClose={() => setToast(null)} />
       <header className="topbar">
-        <button className="brand" onClick={() => { setCaseId(null); setView("intake"); }}>
+        <button className="brand" aria-label="Open New Vendor Onboarding" onClick={() => { setCaseId(null); setView("intake"); }}>
           <div className="brand-mark"><ShieldCheck size={22} /></div>
           <div><strong>Vendor Verify</strong><span>Verification Agent</span></div>
         </button>
