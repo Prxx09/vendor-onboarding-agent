@@ -82,6 +82,7 @@ class WindowsOcrProvider(OcrProvider):
         bitmap = await decoder.get_software_bitmap_async()
         result = await engine.recognize_async(bitmap)
 
-        # Joining lines preserves document structure better than flattening all text.
-        text = "\n".join(line.text for line in result.lines)
-        return text.strip()
+        # OcrResult.text avoids materializing the WinRT IVectorView<OcrLine>
+        # returned by result.lines, which would require the optional
+        # Windows.Foundation.Collections Python projection.
+        return (result.text or "").strip()
