@@ -38,6 +38,114 @@ def _review_decision_audit_event(
     }
 
 
+def _agent_run_audit_events(
+    run: dict,
+    vendor_name: str | None = None,
+    vendor_status: str | None = None,
+) -> list[dict]:
+    """Convert an agent run into customer-friendly lifecycle milestones."""
+    run_id = run.get("id")
+    vendor_id = run.get("vendor_id")
+    created_at = run.get("created_at")
+    raw_events = run.get("events") or []
+
+    intake_event = next(
+        (item for item in raw_events if isinstance(item, dict) and item.get("step") == "intake"),
+        {},
+    )
+    extraction_events = [
+        item for item in raw_events
+        if isinstance(item, dict) and item.get("step") == "document_extraction"
+    ]
+    failed_extractions = [
+        item for item in extraction_events
+        if "failed" in str(item.get("message") or "").lower()
+    ]
+    completed_extractions = max(0, len(extraction_events) - len(failed_extractions))
+    resumed = "resumed vendor" in str(intake_event.get("message") or "").lower()
+    verification_completed = any(
+        isinstance(item, dict) and item.get("step") == "external_verification"
+        for item in raw_events
+    )
+
+    vendor_meta = {
+        "legal_name": vendor_name or "",
+        "status": vendor_status or run.get("status"),
+    }
+    common = {
+        "vendor_id": vendor_id,
+        "actor": "Verification Agent",
+        "created_at": created_at,
+        "verification_vendors": vendor_meta,
+    }
+
+    extraction_action = (
+        "AI Extraction Completed With Issues"
+        if failed_extractions
+        else "AI Extraction Complete"
+    )
+    verification_action = (
+        "Verification Checks Complete"
+        if verification_completed
+        else "Document Completeness Check Complete"
+    )
+    current_status = str(vendor_status or run.get("status") or "Unknown").replace("_", " ").title()
+
+    return [
+        {
+            **common,
+            "id": f"run-{run_id}-documents",
+            "event_type": "DOCUMENT_SUBMITTED",
+            "action": "Additional Documents Submitted" if resumed else "Documents Submitted",
+            "details": {
+                "agent_run_id": run_id,
+                "lifecycle_stage": "documents_submitted",
+                "stage_order": 1,
+                "message": intake_event.get("message"),
+            },
+        },
+        {
+            **common,
+            "id": f"run-{run_id}-extraction",
+            "event_type": "AI_EXTRACTION_COMPLETE",
+            "action": extraction_action,
+            "details": {
+                "agent_run_id": run_id,
+                "lifecycle_stage": "ai_extraction_complete",
+                "stage_order": 2,
+                "documents_extracted": completed_extractions,
+                "documents_failed": len(failed_extractions),
+            },
+        },
+        {
+            **common,
+            "id": f"run-{run_id}-verification",
+            "event_type": "VERIFICATION_COMPLETE" if verification_completed else "COMPLETENESS_CHECK_COMPLETE",
+            "action": verification_action,
+            "details": {
+                "agent_run_id": run_id,
+                "lifecycle_stage": "verification_complete",
+                "stage_order": 3,
+                "missing_documents": run.get("missing_documents") or [],
+                "check_count": len(run.get("checks") or []),
+            },
+        },
+        {
+            **common,
+            "id": f"run-{run_id}-status",
+            "event_type": "STATUS_UPDATE",
+            "action": f"Current Status: {current_status}",
+            "details": {
+                "agent_run_id": run_id,
+                "lifecycle_stage": "current_status",
+                "stage_order": 4,
+                "status": vendor_status or run.get("status"),
+                "recommendation": run.get("recommendation"),
+            },
+        },
+    ]
+
+
 CHECK_SCORES = {
     "VERIFIED": 100.0,
     "REVIEW_REQUIRED": 50.0,
@@ -372,7 +480,7 @@ class VendorRepository:
         try:
             rows = (
                 self.db.table("verification_audit_events")
-                .select("*,verification_vendors(legal_name)")
+                .select("*,verification_vendors(legal_name,status,updated_at)")
                 .order("created_at", desc=True)
                 .limit(limit)
                 .execute()
@@ -382,9 +490,6 @@ class VendorRepository:
         except Exception:
             rows = []
 
-        # Human review decisions are also persisted in their own canonical table.
-        # Merge them into the audit feed so a review remains visible even if an
-        # audit-table insert failed or the case predates decision-specific events.
         try:
             reviews = (
                 self.db.table("verification_review_decisions")
@@ -398,51 +503,84 @@ class VendorRepository:
         except Exception:
             reviews = []
 
+        try:
+            runs = (
+                self.db.table("verification_agent_runs")
+                .select("*")
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+                .data
+                or []
+            )
+        except Exception:
+            runs = []
+
         vendor_ids = {
-            str(review.get("vendor_id"))
-            for review in reviews
-            if review.get("vendor_id")
+            str(item.get("vendor_id"))
+            for item in [*rows, *reviews, *runs]
+            if item.get("vendor_id")
         }
-        vendor_names: dict[str, str] = {}
+        vendor_map: dict[str, dict] = {}
         if vendor_ids:
             try:
                 vendors = (
                     self.db.table("verification_vendors")
-                    .select("id,legal_name")
+                    .select("id,legal_name,status,updated_at")
                     .in_("id", list(vendor_ids))
                     .execute()
                     .data
                     or []
                 )
-                vendor_names = {
-                    str(item.get("id")): str(item.get("legal_name") or "")
-                    for item in vendors
-                }
+                vendor_map = {str(item.get("id")): item for item in vendors}
             except Exception:
-                vendor_names = {}
+                vendor_map = {}
+
+        # The Amazon/Flipkart-style history is derived from canonical agent runs.
+        # Hide the older generic run row so the user sees meaningful milestones.
+        rows = [
+            row for row in rows
+            if row.get("event_type") not in {"HUMAN_REVIEW", "VERIFICATION_RUN"}
+        ]
+
+        for run in runs:
+            vendor = vendor_map.get(str(run.get("vendor_id")), {})
+            rows.extend(
+                _agent_run_audit_events(
+                    run,
+                    vendor.get("legal_name"),
+                    vendor.get("status"),
+                )
+            )
 
         persisted_review_ids = {
             str((row.get("details") or {}).get("review_decision_id"))
             for row in rows
             if (row.get("details") or {}).get("review_decision_id") is not None
         }
-
-        # Older HUMAN_REVIEW rows did not contain the review-decision ID and can
-        # duplicate the canonical review record, so prefer the review table.
-        rows = [
-            row for row in rows
-            if row.get("event_type") != "HUMAN_REVIEW"
-        ]
-
         for review in reviews:
             review_id = str(review.get("id"))
             if review_id not in persisted_review_ids:
-                rows.append(
-                    _review_decision_audit_event(
-                        review,
-                        vendor_names.get(str(review.get("vendor_id"))),
-                    )
+                vendor = vendor_map.get(str(review.get("vendor_id")), {})
+                event = _review_decision_audit_event(
+                    review,
+                    vendor.get("legal_name"),
                 )
+                event["verification_vendors"] = {
+                    "legal_name": vendor.get("legal_name") or "",
+                    "status": vendor.get("status"),
+                    "updated_at": vendor.get("updated_at"),
+                }
+                rows.append(event)
+
+        for row in rows:
+            vendor = vendor_map.get(str(row.get("vendor_id")))
+            if vendor:
+                row["verification_vendors"] = {
+                    "legal_name": vendor.get("legal_name") or "",
+                    "status": vendor.get("status"),
+                    "updated_at": vendor.get("updated_at"),
+                }
 
         rows.sort(
             key=lambda item: str(item.get("created_at") or ""),
@@ -511,23 +649,37 @@ class VendorRepository:
         except Exception:
             audit_rows = []
 
+        vendor_snapshot = (vendor.data or [{}])[0]
+        audit_rows = [
+            row for row in audit_rows
+            if row.get("event_type") not in {"HUMAN_REVIEW", "VERIFICATION_RUN"}
+        ]
+        for run_row in runs.data or []:
+            audit_rows.extend(
+                _agent_run_audit_events(
+                    run_row,
+                    vendor_snapshot.get("legal_name"),
+                    vendor_snapshot.get("status"),
+                )
+            )
+
         persisted_review_ids = {
             str((row.get("details") or {}).get("review_decision_id"))
             for row in audit_rows
             if (row.get("details") or {}).get("review_decision_id") is not None
         }
-        audit_rows = [
-            row for row in audit_rows
-            if row.get("event_type") != "HUMAN_REVIEW"
-        ]
         for review_row in reviews.data or []:
             if str(review_row.get("id")) not in persisted_review_ids:
-                audit_rows.append(
-                    _review_decision_audit_event(
-                        review_row,
-                        (vendor.data or [{}])[0].get("legal_name"),
-                    )
+                review_event = _review_decision_audit_event(
+                    review_row,
+                    vendor_snapshot.get("legal_name"),
                 )
+                review_event["verification_vendors"] = {
+                    "legal_name": vendor_snapshot.get("legal_name") or "",
+                    "status": vendor_snapshot.get("status"),
+                    "updated_at": vendor_snapshot.get("updated_at"),
+                }
+                audit_rows.append(review_event)
         audit_rows.sort(
             key=lambda item: str(item.get("created_at") or ""),
             reverse=True,
