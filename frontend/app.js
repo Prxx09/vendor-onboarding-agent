@@ -2,7 +2,8 @@ const state = {
   cases: [],
   audit: [],
   selectedCase: null,
-  threshold: 82,
+  threshold: null,
+  config: null,
   documentName: "",
   documents: [],
   extracted: false,
@@ -10,33 +11,6 @@ const state = {
   caseDetailTab: "overview",
   openAuditCases: new Set(),
 };
-
-const fallbackCases = [
-  {
-    id: "VO-OFFLINE",
-    vendor_name: "Offline Demo Vendor",
-    category: "General",
-    status: "HUMAN_REVIEW",
-    confidence: 76,
-    risk_level: "Medium",
-    document: "offline-demo.pdf",
-    submitted_at: new Date().toISOString(),
-    assigned_to: "Vendor Risk Reviewer",
-    extracted_fields: {
-      legal_name: "Offline Demo Vendor",
-      tax_id: "27ABCDE1234F1Z5",
-      pan: "ABCDE1234F",
-      bank_account: "XXXXXX1234",
-      ifsc: "HDFC0001342",
-      registered_address: "Noida, Uttar Pradesh",
-      contact_email: "accounts@offline.example",
-    },
-    checks: [
-      { name: "Document completeness", score: 82, result: "Pass", detail: "Offline fallback data loaded." },
-      { name: "Tax ID verification", score: 78, result: "Review", detail: "API is unavailable, so manual review is required." },
-    ],
-  },
-];
 
 const viewTitles = {
   dashboard: "Overview",
@@ -152,7 +126,7 @@ function setBusy(button, busy, busyLabel = "Working") {
 
 function setApiStatus(online) {
   const status = qs("#apiStatus");
-  status.lastChild.textContent = online ? "API online" : "Offline demo";
+  status.lastChild.textContent = online ? "API online" : "API unavailable";
   status.classList.toggle("online", online);
   status.classList.toggle("offline", !online);
 }
@@ -191,7 +165,7 @@ function renderMetrics() {
   qs("#metricReview").textContent = review;
   qs("#metricConfidence").textContent = formatConfidence(average);
   qs("#metricApprovalRate").textContent = `${total ? Math.round((approved / total) * 100) : 0}% approval rate`;
-  qs("#metricThresholdCopy").textContent = `Target ${state.threshold}%`;
+  qs("#metricThresholdCopy").textContent = state.threshold == null ? "Target unavailable" : `Target ${state.threshold}%`;
   qs("#reviewNavCount").textContent = review;
   qs("#lastUpdated").textContent = `Updated ${new Intl.DateTimeFormat("en-IN", { hour: "2-digit", minute: "2-digit" }).format(new Date())}`;
 }
@@ -212,7 +186,7 @@ function renderCaseTable() {
   qs("#caseTableEmpty").hidden = items.length > 0;
   table.innerHTML = items.map((item) => `
     <tr>
-      <td><div class="vendor-cell"><strong>${escapeHtml(item.vendor_name)}</strong><small>${escapeHtml(item.region || "India")}</small></div></td>
+      <td><div class="vendor-cell"><strong>${escapeHtml(item.vendor_name)}</strong><small>${escapeHtml(item.region || "Not provided")}</small></div></td>
       <td><strong>${escapeHtml(item.id)}</strong></td>
       <td>${escapeHtml(item.category)}</td>
       <td>${escapeHtml(formatDate(item.submitted_at))}</td>
@@ -502,13 +476,16 @@ function renderAll() {
 
 async function loadConfig() {
   try {
-    const config = await api("/api/config");
-    state.threshold = config.approval_threshold;
-  } catch {
-    state.threshold = 82;
+    state.config = await api("/api/config");
+    state.threshold = state.config.approval_threshold;
+  } catch (error) {
+    state.config = null;
+    state.threshold = null;
+    setApiStatus(false);
+    showAlert(`Configuration could not be loaded: ${error.message}`);
   }
-  qs("#thresholdValue").textContent = `${state.threshold}%`;
-  qs("#thresholdTrack").style.width = `${state.threshold}%`;
+  qs("#thresholdValue").textContent = state.threshold == null ? "Unavailable" : `${state.threshold}%`;
+  qs("#thresholdTrack").style.width = `${meterWidth(state.threshold)}%`;
 }
 
 async function loadCases() {
@@ -517,10 +494,10 @@ async function loadCases() {
   try {
     state.cases = await api("/api/demo-cases");
     setApiStatus(true);
-  } catch {
-    state.cases = fallbackCases;
+  } catch (error) {
+    state.cases = [];
     setApiStatus(false);
-    showAlert("The API is unavailable. Showing offline demonstration data.");
+    showAlert(`Cases could not be loaded: ${error.message}`);
   } finally {
     setBusy(button, false);
   }
@@ -562,21 +539,26 @@ function setIntakeStep(step) {
 function handleSelectedFiles(selected) {
   const files = [...(selected || [])];
   if (!files.length) return false;
-  if (files.length > 8) {
-    qs("#documentInput").value = "";
-    showAlert("A maximum of 8 documents can be processed in one intake.");
+  const limits = state.config?.upload_limits;
+  if (!limits) {
+    showAlert("Upload configuration is unavailable. Refresh the page and try again.");
     return false;
   }
-  const oversized = files.find((file) => file.size > 10 * 1024 * 1024);
+  if (files.length > limits.max_documents) {
+    qs("#documentInput").value = "";
+    showAlert(`A maximum of ${limits.max_documents} documents can be processed in one intake.`);
+    return false;
+  }
+  const oversized = files.find((file) => file.size > limits.max_file_size_bytes);
   if (oversized) {
     qs("#documentInput").value = "";
-    showAlert(`${oversized.name} is larger than 10 MB. Choose a smaller file.`);
+    showAlert(`${oversized.name} exceeds the ${formatBytes(limits.max_file_size_bytes)} per-file limit.`);
     return false;
   }
   const total = files.reduce((sum, file) => sum + file.size, 0);
-  if (total > 30 * 1024 * 1024) {
+  if (total > limits.max_total_size_bytes) {
     qs("#documentInput").value = "";
-    showAlert("The selected documents exceed the 30 MB combined limit.");
+    showAlert(`The selected documents exceed the ${formatBytes(limits.max_total_size_bytes)} combined limit.`);
     return false;
   }
   state.documents = files;
@@ -674,7 +656,6 @@ async function submitIntake(event) {
   const payload = Object.fromEntries(new FormData(form).entries());
   payload.compliance_confirmed = form.elements.compliance_confirmed.checked;
   payload.document_name = state.documentName;
-  payload.submitted_by = "Portal User";
   payload.extraction_confidence = state.extractionResult?.extraction_confidence ?? null;
   setIntakeStep(2);
   setBusy(button, true, "Running validation");
@@ -724,7 +705,7 @@ async function submitDecision(decision, button) {
   try {
     const updated = await api(`/api/demo-cases/${encodeURIComponent(state.selectedCase.id)}/decision`, {
       method: "POST",
-      body: JSON.stringify({ decision, reviewer: "Procurement Reviewer", notes }),
+      body: JSON.stringify({ decision, notes }),
     });
     state.cases = state.cases.map((item) => item.id === updated.id ? updated : item);
     state.selectedCase = updated;
