@@ -150,6 +150,7 @@ class VendorRepository:
                 "legal_name": result.vendor_name,
                 "status": result.overall_status,
                 "agent_recommendation": result.recommendation,
+                "human_decision": None,
                 "reasons": result.reasons,
                 "region": submitted.get("region") or None,
                 "category": submitted.get("category") or None,
