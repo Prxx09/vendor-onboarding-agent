@@ -36,6 +36,7 @@ REQUIRED_SUPABASE_TABLES = [
     "kyc_registry",
     "sanctions_registry",
     "vendor_master_snapshot",
+    "vendor_master",
 ]
 
 
@@ -265,8 +266,37 @@ async def dashboard():
 
 
 @router.get("/master-vendors")
-async def master_vendors():
-    return await _repository().list_registered_vendors()
+async def master_vendors(
+    query: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    region: str | None = Query(default=None),
+    verification_status: str | None = Query(default=None),
+    kyc_status: str | None = Query(default=None),
+    bank_verification_status: str | None = Query(default=None),
+):
+    return await _repository().list_master_vendors(
+        query=query,
+        status=status,
+        category=category,
+        region=region,
+        verification_status=verification_status,
+        kyc_status=kyc_status,
+        bank_verification_status=bank_verification_status,
+    )
+
+
+@router.post("/master-vendors/sync-approved")
+async def sync_approved_master_vendors():
+    return await _repository().sync_approved_vendors_to_master()
+
+
+@router.get("/master-vendors/{vendor_code}")
+async def master_vendor_detail(vendor_code: str):
+    vendor = await _repository().get_master_vendor(vendor_code)
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Master vendor not found.")
+    return vendor
 
 
 @router.get("/vendors")
@@ -330,7 +360,7 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         "ifsc": "ifsc_swift",
         "registered_address": "registered_address",
         "contact_email": "contact_email",
-        "category": "vendor_category",
+        "categories": "vendor_category",
     }
     suggestions: dict[str, dict[str, Any]] = {}
 
@@ -345,7 +375,7 @@ async def extract_documents(files: list[UploadFile] = File(...)):
         "bank_account": {"bank_proof": 3},
         "ifsc": {"bank_proof": 3},
         "contact_email": {"business_registration": 2, "tax_certificate": 2, "bank_proof": 1},
-        "category": {"business_registration": 2, "tax_certificate": 1},
+        "categories": {"business_registration": 2, "tax_certificate": 1},
     }
 
     for output in extractions:
@@ -443,13 +473,22 @@ async def process_vendor(
     bank_account: str = Form(default=""),
     ifsc: str = Form(default=""),
     registered_address: str = Form(default=""),
+    contact_name: str = Form(default=""),
     contact_email: str = Form(default=""),
+    contact_phone: str = Form(default=""),
     category: str = Form(default=""),
+    categories: str = Form(default=""),
     region: str = Form(default=""),
     submitted_by: str = Form(default=""),
     compliance_confirmed: bool | None = Form(default=None),
 ):
     payloads = await _read_uploads(files)
+    category_values = _csv_values(categories)
+    if category.strip() and category.strip().lower() not in {
+        item.lower() for item in category_values
+    }:
+        category_values.append(category.strip())
+
     submitted_data = _clean_submitted_data(
         legal_name=legal_name,
         tax_id=tax_id,
@@ -457,8 +496,11 @@ async def process_vendor(
         bank_account=bank_account,
         ifsc=ifsc,
         registered_address=registered_address,
+        contact_name=contact_name,
         contact_email=contact_email,
-        category=category,
+        contact_phone=contact_phone,
+        category=category_values[0] if category_values else "",
+        categories=category_values,
         region=region,
         submitted_by=submitted_by,
         compliance_confirmed=compliance_confirmed,

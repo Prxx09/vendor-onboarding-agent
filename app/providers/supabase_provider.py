@@ -181,6 +181,25 @@ class SupabaseVerificationProvider(VerificationProvider):
         )
 
     async def check_duplicate_tax_id(self, tax_id: str) -> VerificationEvidence:
+        try:
+            live = (
+                self.db.table("vendor_master")
+                .select("*")
+                .eq("tax_id", tax_id)
+                .limit(1)
+                .execute()
+            )
+        except Exception:
+            live = None
+
+        if live and live.data:
+            return VerificationEvidence(
+                source="vendor_master",
+                status="REVIEW_REQUIRED",
+                message="Tax ID already belongs to a vendor in the global Vendor Master.",
+                data=live.data[0],
+            )
+
         result = (
             self.db.table("vendor_master_snapshot")
             .select("*")
@@ -188,18 +207,17 @@ class SupabaseVerificationProvider(VerificationProvider):
             .limit(1)
             .execute()
         )
-
         if result.data:
             return VerificationEvidence(
                 source="vendor_master_snapshot",
                 status="REVIEW_REQUIRED",
-                message="Tax ID already exists in the vendor master.",
+                message="Tax ID already exists in the reference vendor master.",
                 data=result.data[0],
             )
 
         return VerificationEvidence(
-            source="vendor_master_snapshot",
+            source="vendor_master",
             status="VERIFIED",
-            message="No duplicate tax ID found in the vendor master.",
+            message="No duplicate Tax ID found in the global Vendor Master.",
             data={"duplicate": False},
         )

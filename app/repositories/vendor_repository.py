@@ -153,6 +153,41 @@ def _agent_run_audit_events(
     ]
 
 
+def _normalize_categories(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        raw = [str(item).strip() for item in value]
+    else:
+        raw = [item.strip() for item in str(value).replace(";", ",").split(",")]
+
+    output: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not item:
+            continue
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        output.append(item)
+    return output
+
+
+def _master_vendor_code(case_id: str) -> str:
+    compact = "".join(character for character in str(case_id) if character.isalnum())
+    return f"VEN-{compact[:8].upper()}"
+
+
+def _master_verification_status(
+    case_status: str | None,
+    human_decision: str | None,
+) -> str:
+    if case_status != "APPROVED":
+        return "PENDING"
+    return "VERIFIED_WITH_OVERRIDE" if human_decision == "APPROVE" else "VERIFIED"
+
+
 CHECK_SCORES = {
     "VERIFIED": 100.0,
     "REVIEW_REQUIRED": 50.0,
@@ -297,8 +332,15 @@ class VendorRepository:
                 "human_decision": None,
                 "reasons": result.reasons,
                 "region": submitted.get("region") or None,
-                "category": submitted.get("category") or None,
+                "category": submitted.get("category") or (
+                    (_normalize_categories(submitted.get("categories")) or [None])[0]
+                ),
+                "categories": _normalize_categories(
+                    submitted.get("categories") or submitted.get("category")
+                ),
+                "contact_name": submitted.get("contact_name") or None,
                 "contact_email": submitted.get("contact_email") or None,
+                "contact_phone": submitted.get("contact_phone") or None,
                 "compliance_confirmed": submitted.get("compliance_confirmed"),
                 "submitted_by": submitted.get("submitted_by") or None,
                 "submitted_data": submitted,
@@ -363,6 +405,12 @@ class VendorRepository:
                 "agent_run_id": (run.data or [{}])[0].get("id") if run else None,
             },
         )
+
+        if result.overall_status == "APPROVED":
+            await self._promote_with_fallback(
+                result.vendor_id,
+                actor=str(actor),
+            )
 
     async def list_vendors(
         self,
@@ -433,80 +481,273 @@ class VendorRepository:
             )
         return output
 
-    async def list_registered_vendors(self) -> list[dict]:
-        """Return every vendor in the synthetic company registry for the Master Dashboard."""
-        companies = (
-            self.db.table("company_registry")
+    @staticmethod
+    def _document_payload(documents: list[dict], document_type: str) -> dict:
+        for document in reversed(documents):
+            extracted = document.get("extracted_data") or {}
+            if extracted.get("document_type") == document_type:
+                return extracted
+        return {}
+
+    @staticmethod
+    def _check_by_source(run: dict | None, source_fragment: str) -> dict:
+        for check in (run or {}).get("checks") or []:
+            if (
+                isinstance(check, dict)
+                and source_fragment.lower() in str(check.get("source") or "").lower()
+            ):
+                return check
+        return {}
+
+    async def promote_vendor_to_master(
+        self,
+        vendor_id: str,
+        actor: str = "verification_agent",
+    ) -> dict | None:
+        detail = await self.get_vendor(vendor_id)
+        if not detail:
+            return None
+
+        vendor = detail.get("vendor") or {}
+        if vendor.get("status") != "APPROVED":
+            return None
+
+        submitted = vendor.get("submitted_data") or {}
+        documents = detail.get("documents") or []
+        latest_run = (detail.get("agent_runs") or [{}])[0]
+
+        business = self._document_payload(documents, "business_registration")
+        tax = self._document_payload(documents, "tax_certificate")
+        bank = self._document_payload(documents, "bank_proof")
+
+        registration_number = business.get("registration_number")
+        tax_id = submitted.get("tax_id") or tax.get("tax_id")
+        pan = submitted.get("pan") or tax.get("pan")
+        bank_account = submitted.get("bank_account") or bank.get("bank_account_number")
+        ifsc_swift = submitted.get("ifsc") or bank.get("ifsc_swift")
+        categories = _normalize_categories(
+            submitted.get("categories")
+            or submitted.get("category")
+            or business.get("vendor_category")
+            or tax.get("vendor_category")
+        )
+
+        bank_check = self._check_by_source(latest_run, "bank")
+        kyc_check = self._check_by_source(latest_run, "kyc")
+        bank_data = bank_check.get("data") or {}
+        kyc_data = kyc_check.get("data") or {}
+        now = datetime.now(timezone.utc).isoformat()
+
+        payload = {
+            "vendor_code": _master_vendor_code(vendor_id),
+            "source_case_id": vendor_id,
+            "legal_name": vendor.get("legal_name") or "Unknown Vendor",
+            "registration_number": registration_number,
+            "tax_id": tax_id,
+            "pan": pan,
+            "registered_address": (
+                submitted.get("registered_address")
+                or business.get("registered_address")
+                or tax.get("registered_address")
+            ),
+            "region": submitted.get("region") or vendor.get("region"),
+            "categories": categories,
+            "primary_contact_name": submitted.get("contact_name"),
+            "primary_contact_email": submitted.get("contact_email") or vendor.get("contact_email"),
+            "primary_contact_phone": submitted.get("contact_phone"),
+            "bank_name": bank.get("bank_name") or bank_data.get("bank_name"),
+            "account_number": bank_account,
+            "ifsc_swift": ifsc_swift,
+            "bank_verification_status": bank_check.get("status") or "NOT_AVAILABLE",
+            "kyc_status": (
+                kyc_data.get("kyc_status")
+                or kyc_check.get("status")
+                or "NOT_AVAILABLE"
+            ),
+            "verification_status": _master_verification_status(
+                vendor.get("status"),
+                vendor.get("human_decision"),
+            ),
+            "risk_level": self._risk_level(latest_run),
+            "status": "ACTIVE",
+            "approved_at": vendor.get("updated_at") or now,
+            "last_verified_at": latest_run.get("created_at") or vendor.get("updated_at") or now,
+            "updated_at": now,
+        }
+
+        existing: dict | None = None
+        source_match = (
+            self.db.table("vendor_master")
+            .select("*")
+            .eq("source_case_id", vendor_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if source_match:
+            existing = source_match[0]
+
+        if not existing and tax_id:
+            tax_match = (
+                self.db.table("vendor_master")
+                .select("*")
+                .eq("tax_id", tax_id)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            if tax_match:
+                existing = tax_match[0]
+
+        if not existing and registration_number:
+            registration_match = (
+                self.db.table("vendor_master")
+                .select("*")
+                .eq("registration_number", registration_number)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            if registration_match:
+                existing = registration_match[0]
+
+        if existing:
+            payload["vendor_code"] = existing.get("vendor_code") or payload["vendor_code"]
+            payload["approved_at"] = existing.get("approved_at") or payload["approved_at"]
+            saved = (
+                self.db.table("vendor_master")
+                .update(payload)
+                .eq("id", existing["id"])
+                .execute()
+            )
+            event_type = "VENDOR_MASTER_UPDATED"
+            action = "Approved vendor master record updated."
+        else:
+            payload["created_at"] = now
+            saved = self.db.table("vendor_master").insert(payload).execute()
+            event_type = "VENDOR_MASTER_CREATED"
+            action = "Approved vendor promoted to the global Vendor Master."
+
+        row = (saved.data or [payload])[0]
+        self._audit(
+            vendor_id,
+            event_type,
+            action,
+            actor=actor,
+            details={
+                "vendor_code": row.get("vendor_code"),
+                "master_status": row.get("status"),
+                "categories": row.get("categories") or [],
+            },
+        )
+        return row
+
+    async def _promote_with_fallback(
+        self,
+        vendor_id: str,
+        actor: str,
+    ) -> dict | None:
+        try:
+            return await self.promote_vendor_to_master(vendor_id, actor=actor)
+        except Exception as exc:
+            self._audit(
+                vendor_id,
+                "VENDOR_MASTER_SYNC_FAILED",
+                "Approved vendor could not be synchronized to Vendor Master.",
+                actor=actor,
+                details={"error": str(exc)},
+            )
+            return None
+
+    async def sync_approved_vendors_to_master(
+        self,
+        actor: str = "system",
+    ) -> dict:
+        approved = await self.list_vendors(status="APPROVED", limit=1000)
+        synced = 0
+        failed = 0
+        for vendor in approved:
+            try:
+                row = await self.promote_vendor_to_master(vendor["id"], actor=actor)
+                if row:
+                    synced += 1
+            except Exception:
+                failed += 1
+        return {"approved_cases": len(approved), "synced": synced, "failed": failed}
+
+    async def list_master_vendors(
+        self,
+        query: str | None = None,
+        status: str | None = None,
+        category: str | None = None,
+        region: str | None = None,
+        verification_status: str | None = None,
+        kyc_status: str | None = None,
+        bank_verification_status: str | None = None,
+        limit: int = 1000,
+    ) -> list[dict]:
+        rows = (
+            self.db.table("vendor_master")
             .select("*")
             .order("legal_name")
+            .limit(limit)
             .execute()
             .data
             or []
         )
-        taxes = (
-            self.db.table("tax_registry")
-            .select("*")
-            .execute()
-            .data
-            or []
-        )
-        kyc_rows = (
-            self.db.table("kyc_registry")
-            .select("*")
-            .execute()
-            .data
-            or []
-        )
-        cases = await self.list_vendors(limit=1000)
 
-        tax_by_registration = {
-            str(item.get("registration_number")): item
-            for item in taxes
-            if item.get("registration_number")
-        }
-        kyc_by_registration = {
-            str(item.get("registration_number")): item
-            for item in kyc_rows
-            if item.get("registration_number")
-        }
-        case_by_name: dict[str, dict] = {}
-        for case in cases:
-            key = str(case.get("legal_name") or "").strip().lower()
-            if key and key not in case_by_name:
-                case_by_name[key] = case
+        def matches(row: dict) -> bool:
+            if status and row.get("status") != status:
+                return False
+            if verification_status and row.get("verification_status") != verification_status:
+                return False
+            if kyc_status and row.get("kyc_status") != kyc_status:
+                return False
+            if bank_verification_status and row.get("bank_verification_status") != bank_verification_status:
+                return False
+            if region and str(row.get("region") or "").lower() != region.lower():
+                return False
+            if category:
+                categories = _normalize_categories(row.get("categories"))
+                if category.lower() not in {item.lower() for item in categories}:
+                    return False
+            if query:
+                needle = query.strip().lower()
+                haystack = [
+                    row.get("vendor_code"),
+                    row.get("legal_name"),
+                    row.get("registration_number"),
+                    row.get("tax_id"),
+                    row.get("primary_contact_name"),
+                    row.get("primary_contact_email"),
+                    row.get("region"),
+                    " ".join(_normalize_categories(row.get("categories"))),
+                ]
+                if not any(needle in str(value or "").lower() for value in haystack):
+                    return False
+            return True
 
-        output: list[dict] = []
-        for company in companies:
-            registration_number = str(company.get("registration_number") or "")
-            tax = tax_by_registration.get(registration_number, {})
-            kyc = kyc_by_registration.get(registration_number, {})
-            case = case_by_name.get(str(company.get("legal_name") or "").strip().lower(), {})
-            output.append(
-                {
-                    "registration_number": company.get("registration_number"),
-                    "legal_name": company.get("legal_name"),
-                    "country": company.get("country"),
-                    "region": company.get("region") or company.get("country"),
-                    "vendor_category": company.get("vendor_category") or company.get("company_type"),
-                    "registered_address": company.get("registered_address"),
-                    "registration_status": company.get("registration_status"),
-                    "registration_valid_to": company.get("registration_valid_to"),
-                    "contact_email": company.get("contact_email"),
-                    "tax_id": tax.get("tax_id"),
-                    "tax_status": tax.get("tax_status"),
-                    "pan": tax.get("pan"),
-                    "kyc_status": kyc.get("kyc_status"),
-                    "case_id": case.get("id"),
-                    "case_status": case.get("status"),
-                    "confidence_score": case.get("confidence_score"),
-                    "case_updated_at": case.get("updated_at"),
-                }
-            )
-        return output
+        return [row for row in rows if matches(row)]
+
+    async def get_master_vendor(self, vendor_code: str) -> dict | None:
+        result = (
+            self.db.table("vendor_master")
+            .select("*")
+            .eq("vendor_code", vendor_code)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    async def list_registered_vendors(self) -> list[dict]:
+        return await self.list_master_vendors()
 
     async def dashboard(self) -> dict:
         vendors = await self.list_vendors(limit=1000)
-        registered_vendors = await self.list_registered_vendors()
+        registered_vendors = await self.list_master_vendors()
         total = len(vendors)
         counts = {
             "APPROVED": 0,
@@ -866,6 +1107,12 @@ class VendorRepository:
                 "final_status": final_status,
             },
         )
+
+        if final_status == "APPROVED":
+            await self._promote_with_fallback(
+                vendor_id,
+                actor=review.reviewer,
+            )
 
         return updated.data[0] if updated.data else {
             "id": vendor_id,

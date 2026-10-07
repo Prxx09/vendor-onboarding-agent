@@ -204,3 +204,19 @@ also written to `verification_audit_events` as `REVIEW_DECISION` events.
 Audit APIs merge the canonical review-decision history as a fallback, so
 approve/reject/request-information actions remain visible even if an older
 generic audit event is missing.
+
+
+## Global Vendor Master
+
+Approved onboarding cases are automatically promoted into the Supabase
+`vendor_master` table. The onboarding case remains the evidence/audit record;
+the master record is the reusable enterprise supplier profile.
+
+The MVP supports multiple categories/capabilities, one primary contact, one
+approved bank account, ACTIVE/SUSPENDED/BLOCKED/EXPIRED lifecycle states, and
+dashboard filtering by vendor status, category, region, verification, KYC/KYB
+and bank-verification status.
+
+Apply `sql/vendor_master_migration.sql` to an existing Supabase environment.
+It also backfills existing APPROVED cases. New auto-approved or human-approved
+cases are synchronized automatically.
