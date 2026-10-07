@@ -1,0 +1,7 @@
+SYNTHETIC QUOTATION
+Supplier Name: Aster & Pine Demo Supplies Ltd
+Currency: USD
+Item: Demo paper pack; Quantity: 2; Unit Price: USD 12.50; Tax: USD 1.25
+Total: USD 27.50
+Payment Terms: Net 30 days
+Delivery Date: 2026-11-15

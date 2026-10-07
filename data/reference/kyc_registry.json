@@ -1,0 +1,12 @@
+{
+  "companies": [
+    {
+      "registration_number": "DEMO-IN-0001",
+      "country": "IN",
+      "registered_name": "Example Vendor India Pvt Ltd",
+      "active": true,
+      "incorporation_date": "2020-01-15",
+      "registered_address": "1 Fictional Square, Mumbai"
+    }
+  ]
+}

@@ -1,9 +1,11 @@
+.env
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .pytest_cache/
-.mypy_cache/
+.pytest-temp/
+pytest-cache-files-*/
 .ruff_cache/
-.env
-vendor_onboarding.db
-
+data/uploads/
+config/integrations.yaml

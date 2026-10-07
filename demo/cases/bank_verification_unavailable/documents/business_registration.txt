@@ -1,0 +1,6 @@
+Legal Name: Example Vendor India Pvt Ltd
+Registration Number: DEMO-IN-0001
+Company Type: Private Limited Company
+Registered Address: 1 Fictional Demo Lane, Sample City
+Issue Date: 12 March 2023
+Expiry Date: 12 March 2033

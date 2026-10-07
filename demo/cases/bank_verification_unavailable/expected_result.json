@@ -1,0 +1,16 @@
+{
+  "recommended_next_action": "MANUAL_REVIEW",
+  "hard_blocked": false,
+  "required_approval_stages": [
+    "PROCUREMENT",
+    "BUDGET_OWNER"
+  ],
+  "fictional_data": true,
+  "workflow_status": "NEEDS_MANUAL_REVIEW",
+  "risk_score": 10,
+  "risk_label": "LOW",
+  "finding_codes": [
+    "LOW_CONFIDENCE_FIELD",
+    "VERIFICATION_UNAVAILABLE"
+  ]
+}

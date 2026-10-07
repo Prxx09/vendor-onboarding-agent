@@ -1,0 +1,6 @@
+SYNTHETIC TAX CERTIFICATE
+Legal Name: Blue Lantern Mock Services LLC
+Tax ID: DEMO-TAX-88421
+Registered Address: 28 Sample Road, Exampleton
+Tax Status: Active
+Effective Date: 2024-01-15

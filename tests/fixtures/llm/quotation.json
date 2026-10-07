@@ -1,0 +1,19 @@
+{
+  "document_type": "QUOTATION",
+  "fields": [
+    {"name": "supplier_name", "value": "Aster & Pine Demo Supplies Ltd", "evidence_quote": "Supplier Name: Aster & Pine Demo Supplies Ltd"},
+    {"name": "currency", "value": "USD", "evidence_quote": "Currency: USD"},
+    {"name": "total", "value": "27.50", "evidence_quote": "Total: USD 27.50"},
+    {"name": "payment_terms", "value": "Net 30 days", "evidence_quote": "Payment Terms: Net 30 days"},
+    {"name": "delivery_date", "value": "15 November 2026", "evidence_quote": "Delivery Date: 2026-11-15"}
+  ],
+  "line_items": [
+    {
+      "description": {"value": "Demo paper pack", "evidence_quote": "Item: Demo paper pack"},
+      "quantity": {"value": 2, "evidence_quote": "Quantity: 2"},
+      "unit_price": {"value": "12.50", "evidence_quote": "Unit Price: USD 12.50"},
+      "tax": {"value": "1.25", "evidence_quote": "Tax: USD 1.25"}
+    }
+  ],
+  "uncertainties": []
+}

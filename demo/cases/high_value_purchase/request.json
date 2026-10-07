@@ -1,0 +1,40 @@
+{
+  "request": {
+    "request_type": "SUPPLIER_WITH_PURCHASE",
+    "supplier_name": "Example Vendor India Pvt Ltd",
+    "legal_name": "Example Vendor India Pvt Ltd",
+    "country": "IN",
+    "tax_id": "27AAPFU0939F1ZV",
+    "currency": "INR",
+    "estimated_annual_spend": 250000,
+    "requesting_department": "Synthetic Demo Operations",
+    "requester_id": "demo-requester",
+    "budget_owner_id": "demo-budget-owner",
+    "procurement_owner_id": "demo-procurement-owner",
+    "is_demo": true,
+    "purchase_details": {
+      "description": "Fictional demo office supplies",
+      "quantity": 2,
+      "unit_price": "65000",
+      "currency": "INR"
+    }
+  },
+  "documents": [
+    {
+      "file_name": "business_registration.txt",
+      "doc_type": "BUSINESS_REGISTRATION"
+    },
+    {
+      "file_name": "tax_certificate.txt",
+      "doc_type": "TAX_CERTIFICATE"
+    },
+    {
+      "file_name": "bank_document.txt",
+      "doc_type": "BANK_DOCUMENT"
+    },
+    {
+      "file_name": "quotation.txt",
+      "doc_type": "QUOTATION"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "recommended_next_action": "BLOCKED",
+  "hard_blocked": true,
+  "required_approval_stages": [
+    "PROCUREMENT",
+    "BUDGET_OWNER"
+  ],
+  "fictional_data": true,
+  "workflow_status": "BLOCKED",
+  "risk_score": 10,
+  "risk_label": "LOW",
+  "finding_codes": [
+    "BANK_NAME_MISMATCH",
+    "LOW_CONFIDENCE_FIELD"
+  ]
+}

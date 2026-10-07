@@ -1,0 +1,30 @@
+{
+  "request": {
+    "request_type": "NEW_SUPPLIER",
+    "supplier_name": "Example Vendor India Pvt Ltd",
+    "legal_name": "Example Vendor India Pvt Ltd",
+    "country": "IN",
+    "tax_id": "SYN-TAX-ACME-001",
+    "currency": "INR",
+    "estimated_annual_spend": 25000,
+    "requesting_department": "Synthetic Demo Operations",
+    "requester_id": "demo-requester",
+    "budget_owner_id": "demo-budget-owner",
+    "procurement_owner_id": "demo-procurement-owner",
+    "is_demo": true
+  },
+  "documents": [
+    {
+      "file_name": "business_registration.txt",
+      "doc_type": "BUSINESS_REGISTRATION"
+    },
+    {
+      "file_name": "tax_certificate.txt",
+      "doc_type": "TAX_CERTIFICATE"
+    },
+    {
+      "file_name": "bank_document.txt",
+      "doc_type": "BANK_DOCUMENT"
+    }
+  ]
+}
