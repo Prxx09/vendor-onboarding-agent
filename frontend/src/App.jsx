@@ -48,7 +48,9 @@ const AUTO_EXTRACT_FIELDS = [
   "bank_account",
   "ifsc",
   "registered_address",
+  "contact_name",
   "contact_email",
+  "contact_phone",
   "categories",
 ];
 
@@ -785,7 +787,6 @@ function SourceHint({ meta }) {
   return (
     <div className={`field-source ${manual ? "manual" : "ai"}`}>
       <span>{manual ? "Manual Entry" : "AI Extracted"} · {meta.source}</span>
-      {!manual && <span>{formatPercent(Number(meta.confidence) * 100)}</span>}
     </div>
   );
 }
@@ -998,9 +999,7 @@ function NewVendorView({ config, notify }) {
     label,
     present: extractedTypes.has(type),
   }));
-  const averageExtraction = extraction?.documents?.length
-    ? extraction.documents.reduce((sum, doc) => sum + Number(doc.confidence || 0), 0) / extraction.documents.length * 100
-    : null;
+  const averageExtraction = extraction?.overall_extraction_confidence ?? null;
   const stage = submitting ? 3 : files.length ? 2 : 1;
 
   const renderInput = (name, label, props = {}) => (
@@ -1067,8 +1066,8 @@ function NewVendorView({ config, notify }) {
             <>
               <div className="extraction-summary">
                 <div><span>Documents Processed</span><strong>{extraction.documents?.length || 0}</strong></div>
-                <div><span>Extraction Confidence</span><strong>{formatPercent(averageExtraction)}</strong></div>
-                <div><span>Required Fields Missing</span><strong>{extraction.missing_required_fields?.length || 0}</strong></div>
+                <div><span>Extraction Completeness</span><strong>{formatPercent(averageExtraction)}</strong></div>
+                <div><span>Fields Extracted</span><strong>{extraction.extracted_field_count ?? 0}/{extraction.extractable_field_count ?? AUTO_EXTRACT_FIELDS.length}</strong></div>
               </div>
               <div className="coverage-list">
                 {coverage.map((item) => (
