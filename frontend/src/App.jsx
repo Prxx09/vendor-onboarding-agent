@@ -566,15 +566,26 @@ function DashboardView({ onOpenCase }) {
   const load = useCallback(async () => {
     setBusy(true);
     setError("");
-    try {
-      const [dashboard, master] = await Promise.all([getDashboard(), listMasterVendors()]);
-      setData(dashboard);
-      setMasterVendors(master);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
+    const [dashboardResult, masterResult] = await Promise.allSettled([
+      getDashboard(),
+      listMasterVendors(),
+    ]);
+
+    if (dashboardResult.status === "fulfilled") {
+      setData(dashboardResult.value);
     }
+    if (masterResult.status === "fulfilled") {
+      setMasterVendors(masterResult.value);
+    }
+
+    const failures = [dashboardResult, masterResult]
+      .filter((item) => item.status === "rejected")
+      .map((item) => item.reason?.message || "Unable to load dashboard data.");
+
+    if (failures.length) {
+      setError(failures.join(" · "));
+    }
+    setBusy(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
