@@ -3177,3 +3177,245 @@ body {
     height: 16px;
   }
 }
+
+
+/* ==========================================================================
+   Master Dashboard Control Pane
+   Clear hierarchy for operational metrics, configurable threshold, and filters.
+   ========================================================================== */
+
+.master-summary-strip {
+  grid-template-columns: .8fr .8fr 1.35fr 1.35fr;
+  overflow: visible;
+}
+
+.master-summary-strip .summary-item {
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 14px;
+  border-right: 1px solid var(--line);
+}
+
+.master-summary-strip .summary-item:last-child {
+  border-right: 0;
+}
+
+.master-summary-strip .summary-item > span {
+  color: var(--muted);
+  font-size: 10.75px;
+  font-weight: 550;
+}
+
+.master-summary-strip .summary-item > strong,
+.threshold-display > strong {
+  margin-top: 4px;
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.threshold-summary-item {
+  position: relative;
+}
+
+.threshold-display {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 28px;
+}
+
+.threshold-display > strong {
+  margin-top: 0;
+  font-size: 15px;
+}
+
+.threshold-display button,
+.threshold-save,
+.threshold-cancel {
+  min-height: 28px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.threshold-display button {
+  padding: 4px 8px;
+  border: 1px solid #ccd4df;
+  background: #fff;
+  color: #44536a;
+}
+
+.threshold-display button:hover {
+  border-color: #aeb9c8;
+  background: #f7f8fa;
+  color: var(--ink);
+}
+
+.threshold-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.threshold-input-wrap {
+  width: 92px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #bfc9d6;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.threshold-input-wrap:focus-within {
+  border-color: #7288d9;
+  box-shadow: 0 0 0 2px rgba(52,87,213,.10);
+}
+
+.threshold-input-wrap input {
+  min-width: 0;
+  width: 62px;
+  height: 100%;
+  padding: 4px 6px 4px 8px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.threshold-input-wrap span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.threshold-save {
+  padding: 4px 9px;
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+
+.threshold-save:hover:not(:disabled) {
+  background: var(--blue-dark);
+}
+
+.threshold-cancel {
+  padding: 4px 7px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.threshold-cancel:hover:not(:disabled) {
+  color: var(--ink);
+  background: #f3f5f7;
+}
+
+.threshold-save:disabled,
+.threshold-cancel:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.threshold-error {
+  display: block;
+  margin-top: 3px;
+  color: var(--red);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+/* Use two deliberate filter rows instead of squeezing every control inline. */
+.master-filter-toolbar {
+  display: grid;
+  grid-template-columns: minmax(340px, 2fr) repeat(3, minmax(135px, .72fr));
+  gap: 8px;
+  padding: 9px;
+  align-items: center;
+}
+
+.master-filter-toolbar .search-field {
+  width: 100%;
+  min-width: 0;
+  flex: none;
+}
+
+.master-filter-toolbar select {
+  width: 100%;
+  min-width: 0;
+}
+
+.master-filter-toolbar select:nth-of-type(4) {
+  grid-column: 2;
+}
+
+.master-filter-toolbar select:nth-of-type(5) {
+  grid-column: 3;
+}
+
+.master-filter-toolbar select:nth-of-type(6) {
+  grid-column: 4;
+}
+
+/* Remove obsolete count placement entirely. */
+.master-filter-toolbar .master-count {
+  display: none;
+}
+
+@media (max-width: 1220px) {
+  .master-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .master-summary-strip .summary-item:nth-child(2) {
+    border-right: 0;
+  }
+
+  .master-summary-strip .summary-item:nth-child(n+3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .master-filter-toolbar {
+    grid-template-columns: minmax(260px, 1.5fr) repeat(2, minmax(130px, 1fr));
+  }
+
+  .master-filter-toolbar select:nth-of-type(4),
+  .master-filter-toolbar select:nth-of-type(5),
+  .master-filter-toolbar select:nth-of-type(6) {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .master-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .master-summary-strip .summary-item {
+    border-right: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .master-summary-strip .summary-item:first-child {
+    border-top: 0;
+  }
+
+  .master-filter-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .master-filter-toolbar select:nth-of-type(4),
+  .master-filter-toolbar select:nth-of-type(5),
+  .master-filter-toolbar select:nth-of-type(6) {
+    grid-column: auto;
+  }
+}
