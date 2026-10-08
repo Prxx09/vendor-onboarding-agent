@@ -360,8 +360,6 @@ function MissingDocumentUpload({ result, config, onUpdated, title = "Supply Miss
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [selectedMasterVendor, setSelectedMasterVendor] = useState(null);
-
   const policy = config?.upload;
 
   const validate = (incoming) => {
@@ -739,7 +737,7 @@ function DashboardView({ onOpenCase }) {
         <div>
           <div className="eyebrow">Global Vendor Master</div>
           <h1>Master Dashboard</h1>
-          <p>Approved vendors promoted into the shared Supabase Vendor Master for reuse across Finance, Procurement and other teams.</p>
+          <p>Approved vendors available for reuse across Finance, Procurement, and other business teams.</p>
         </div>
         <button className="ghost-button" onClick={load} disabled={busy}>
           <RefreshCw className={busy ? "spin" : ""} size={17} /> Refresh
@@ -918,7 +916,7 @@ function SourceHint({ meta }) {
   const manual = meta.extraction_method === "manual_override" || meta.source === "Manual entry";
   return (
     <div className={`field-source ${manual ? "manual" : "ai"}`}>
-      <span>{manual ? "Manual Entry" : "AI Extracted"} · {meta.source}</span>
+      <span>{manual ? "Manual Entry" : "Extracted From"} · {meta.source}</span>
     </div>
   );
 }
@@ -1217,38 +1215,75 @@ function NewVendorView({ config, notify }) {
 
         <form className="panel intake-form" onSubmit={submit}>
           <div className="panel-title"><Building2 size={19} /> Vendor Information</div>
-          <div className="form-grid">
-            {renderInput("legal_name", "Legal vendor name")}
-            {renderInput("tax_id", "Tax ID / GSTIN")}
-            {renderInput("pan", "PAN")}
-            {renderInput("bank_account", "Bank account")}
-            {renderInput("ifsc", "IFSC / SWIFT")}
-            {renderInput("registered_address", "Registered address")}
-            {renderInput("contact_name", "Primary contact name")}
-            {renderInput("contact_email", "Primary contact email", { type: "email" })}
-            {renderInput("contact_phone", "Primary contact phone")}
-            {renderInput("categories", "Categories / capabilities", { placeholder: "IT Hardware, Laptops, Networking" })}
-            {renderInput("region", "Region", { list: "region-options" })}
-            {renderInput("submitted_by", "Submitted by")}
+
+          <div className="form-sections">
+            <section className="form-section">
+              <div className="form-section-heading">
+                <h3>Company And Tax</h3>
+                <p>Core legal and statutory information.</p>
+              </div>
+              <div className="form-grid">
+                {renderInput("legal_name", "Legal Vendor Name")}
+                {renderInput("tax_id", "Tax ID / GSTIN")}
+                {renderInput("pan", "PAN")}
+                {renderInput("registered_address", "Registered Address")}
+              </div>
+            </section>
+
+            <section className="form-section">
+              <div className="form-section-heading">
+                <h3>Banking</h3>
+                <p>Account details used for verification.</p>
+              </div>
+              <div className="form-grid">
+                {renderInput("bank_account", "Bank Account")}
+                {renderInput("ifsc", "IFSC / SWIFT")}
+              </div>
+            </section>
+
+            <section className="form-section">
+              <div className="form-section-heading">
+                <h3>Primary Contact</h3>
+                <p>Main point of contact for the vendor.</p>
+              </div>
+              <div className="form-grid">
+                {renderInput("contact_name", "Primary Contact Name")}
+                {renderInput("contact_email", "Primary Contact Email", { type: "email" })}
+                {renderInput("contact_phone", "Primary Contact Phone")}
+              </div>
+            </section>
+
+            <section className="form-section">
+              <div className="form-section-heading">
+                <h3>Classification And Submission</h3>
+                <p>Vendor classification and submission ownership.</p>
+              </div>
+              <div className="form-grid">
+                {renderInput("categories", "Categories / Capabilities", { placeholder: "IT Hardware, Laptops, Networking" })}
+                {renderInput("region", "Region", { list: "region-options" })}
+                {renderInput("submitted_by", "Submitted By")}
+              </div>
+              <div className="category-suggestions">
+                {(config?.intake?.categories || []).map((value) => (
+                  <button
+                    type="button"
+                    className="category-suggestion"
+                    key={value}
+                    onClick={() => {
+                      const current = fields.categories
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean);
+                      if (!current.some((item) => item.toLowerCase() === value.toLowerCase())) {
+                        updateField("categories", [...current, value].join(", "));
+                      }
+                    }}
+                  >+ {value}</button>
+                ))}
+              </div>
+            </section>
           </div>
-          <div className="category-suggestions">
-            {(config?.intake?.categories || []).map((value) => (
-              <button
-                type="button"
-                className="category-suggestion"
-                key={value}
-                onClick={() => {
-                  const current = fields.categories
-                    .split(",")
-                    .map((item) => item.trim())
-                    .filter(Boolean);
-                  if (!current.some((item) => item.toLowerCase() === value.toLowerCase())) {
-                    updateField("categories", [...current, value].join(", "));
-                  }
-                }}
-              >+ {value}</button>
-            ))}
-          </div>
+
           <datalist id="region-options">{(config?.intake?.regions || []).map((value) => <option value={value} key={value} />)}</datalist>
 
           <label className="compliance-row">
@@ -1526,7 +1561,7 @@ function ReviewQueueView({ config, notify }) {
 
   return (
     <section className="page-stack">
-      <div className="section-heading"><div><div className="eyebrow">Exception handling</div><h1>Human Review Queue</h1><p>Review only the cases routed by the verification agent.</p></div><button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
+      <div className="section-heading"><div><div className="eyebrow">Exception Handling</div><h1>Human Review Queue</h1><p>Review flagged vendor cases, supporting evidence, and verification results.</p></div><button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
       <div className="review-layout">
         <aside className="panel review-sidebar">
