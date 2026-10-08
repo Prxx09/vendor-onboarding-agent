@@ -1,0 +1,21 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+pydantic-settings>=2.4
+python-multipart>=0.0.9
+supabase>=2.9
+httpx>=0.27
+rapidfuzz>=3.9
+groq>=1.7,<2
+langgraph>=0.2
+PyMuPDF>=1.24
+pytest>=8.0
+pytest-asyncio>=0.24
+
+# Windows built-in OCR (installed only on Windows).
+winrt-runtime>=3.2.1; sys_platform == "win32"
+winrt-Windows.Foundation>=3.2.1; sys_platform == "win32"
+winrt-Windows.Media.Ocr>=3.2.1; sys_platform == "win32"
+winrt-Windows.Graphics.Imaging>=3.2.1; sys_platform == "win32"
+winrt-Windows.Storage.Streams>=3.2.1; sys_platform == "win32"
+winrt-Windows.Globalization>=3.2.1; sys_platform == "win32"

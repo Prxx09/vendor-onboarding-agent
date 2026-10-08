@@ -1,0 +1,90 @@
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+
+DocumentType = Literal[
+    "business_registration",
+    "tax_certificate",
+    "bank_proof",
+    "other",
+]
+
+CheckStatus = Literal[
+    "VERIFIED",
+    "NOT_FOUND",
+    "MISMATCH",
+    "REVIEW_REQUIRED",
+    "ERROR",
+]
+
+
+class DocumentExtraction(BaseModel):
+    filename: str = ""
+    document_type: DocumentType
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    legal_name: str | None = None
+    registration_number: str | None = None
+    tax_id: str | None = None
+    pan: str | None = None
+
+    account_holder_name: str | None = None
+    bank_name: str | None = None
+    bank_account_number: str | None = None
+    ifsc_swift: str | None = None
+
+    registered_address: str | None = None
+    contact_name: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    vendor_category: str | None = None
+    issue_date: str | None = None
+    expiry_date: str | None = None
+
+    field_confidence: dict[str, float] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+
+
+class VerificationEvidence(BaseModel):
+    source: str
+    status: CheckStatus
+    message: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentEvent(BaseModel):
+    step: str
+    message: str
+
+
+class ScorecardItem(BaseModel):
+    name: str
+    score: float = Field(ge=0.0, le=100.0)
+    status: str
+    message: str
+
+
+class VendorProcessResult(BaseModel):
+    vendor_id: str
+    vendor_name: str
+    overall_status: Literal["APPROVED", "ACTION_REQUIRED", "REVIEW_REQUIRED"]
+    recommendation: Literal["APPROVE", "WAIT_FOR_DOCUMENTS", "REJECT"]
+    missing_documents: list[str] = Field(default_factory=list)
+    extractions: list[DocumentExtraction] = Field(default_factory=list)
+    checks: list[VerificationEvidence] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    events: list[AgentEvent] = Field(default_factory=list)
+    confidence_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    scorecard: list[ScorecardItem] = Field(default_factory=list)
+    submitted_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class AutoApprovalThresholdUpdate(BaseModel):
+    auto_approval_threshold: float = Field(ge=0, le=100)
+
+
+class HumanReviewRequest(BaseModel):
+    decision: Literal["APPROVE", "REJECT", "REQUEST_INFORMATION"]
+    reviewer: str
+    comment: str = ""
