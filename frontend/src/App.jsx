@@ -486,10 +486,16 @@ function MasterVendorTable({ rows, onOpenCase }) {
 
   return (
     <div className="table-wrap">
-      <table className="case-table master-vendor-table master-vendor-simple">
+      <table className="case-table master-vendor-table">
         <thead>
           <tr>
             <th>Vendor</th>
+            <th>Categories</th>
+            <th>Region</th>
+            <th>Verification</th>
+            <th>KYC / KYB</th>
+            <th>Bank</th>
+            <th>Status</th>
             <th />
           </tr>
         </thead>
@@ -507,7 +513,21 @@ function MasterVendorTable({ rows, onOpenCase }) {
                 }
               }}
             >
-              <td><strong>{row.legal_name}</strong></td>
+              <td className="master-vendor-name">
+                <strong>{row.legal_name}</strong>
+              </td>
+              <td>
+                <div className="category-list">
+                  {(row.categories || []).length
+                    ? row.categories.map((category) => <span key={category}>{category}</span>)
+                    : <span className="registered-only">Uncategorized</span>}
+                </div>
+              </td>
+              <td>{row.region || "—"}</td>
+              <td><StatusPill value={row.verification_status || "NOT_AVAILABLE"} /></td>
+              <td><StatusPill value={row.kyc_status || "NOT_AVAILABLE"} /></td>
+              <td><StatusPill value={row.bank_verification_status || "NOT_AVAILABLE"} /></td>
+              <td><StatusPill value={row.status || "ACTIVE"} /></td>
               <td className="master-vendor-action">
                 {row.source_case_id
                   ? <button
