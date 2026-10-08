@@ -2487,3 +2487,324 @@ select:focus-visible,
   }
   .footer { display: none; }
 }
+
+
+/* ==========================================================================
+   Viewport And Readability Tuning
+   Reduce unused side gutters and increase reading comfort without changing
+   component behavior, data flow, or interaction logic.
+   ========================================================================== */
+
+body {
+  font-size: 15px;
+}
+
+/* Use significantly more of wide desktop screens. */
+.main-content {
+  width: min(1800px, calc(100% - 32px));
+  padding-top: 22px;
+  padding-bottom: 36px;
+}
+
+/* Slightly larger typography across the application. */
+.brand strong { font-size: 14.5px; }
+.brand span { font-size: 11px; }
+
+.nav-tabs button {
+  font-size: 12.25px;
+}
+
+.health-badge strong {
+  font-size: 11px;
+}
+
+.section-heading h1 {
+  font-size: 26px;
+}
+
+.section-heading p {
+  font-size: 13.5px;
+}
+
+.eyebrow {
+  font-size: 11px;
+}
+
+.panel-title {
+  font-size: 13.25px;
+}
+
+.primary-button,
+.ghost-button,
+.danger-button,
+.back-button {
+  font-size: 12.5px;
+}
+
+.text-input,
+.text-area {
+  font-size: 13.5px;
+}
+
+.field-label {
+  font-size: 12.25px;
+}
+
+.field-source {
+  font-size: 11px;
+}
+
+.field-error,
+.form-error {
+  font-size: 11.5px;
+}
+
+.status-pill {
+  font-size: 10.5px;
+}
+
+.metric-value {
+  font-size: 18px;
+}
+
+.metric-label {
+  font-size: 11.25px;
+}
+
+.dashboard-summary-strip span {
+  font-size: 10.5px;
+}
+
+.dashboard-summary-strip strong {
+  font-size: 12px;
+}
+
+.toolbar select,
+.toolbar input,
+.review-sidebar input {
+  font-size: 12.25px;
+}
+
+.master-count {
+  font-size: 11px;
+}
+
+.case-table th,
+.case-table td {
+  font-size: 13.25px;
+}
+
+.case-table th {
+  font-size: 11px;
+}
+
+.case-table td strong,
+.master-vendor-name strong {
+  font-size: 13.25px;
+}
+
+.table-subtext,
+.mono {
+  font-size: 11px;
+}
+
+.category-list > span:not(.registered-only),
+.category-suggestion {
+  font-size: 11px;
+}
+
+.registered-only {
+  font-size: 10.5px;
+}
+
+.intake-step strong {
+  font-size: 12px;
+}
+
+.drop-zone strong {
+  font-size: 13.5px;
+}
+
+.drop-zone p {
+  font-size: 11px;
+}
+
+.file-meta strong {
+  font-size: 12px;
+}
+
+.file-meta span {
+  font-size: 10.5px;
+}
+
+.extraction-summary span {
+  font-size: 10.5px;
+}
+
+.extraction-summary strong {
+  font-size: 13.5px;
+}
+
+.coverage-list span {
+  font-size: 10.5px;
+}
+
+.form-section-heading h3 {
+  font-size: 12.75px;
+}
+
+.form-section-heading p {
+  font-size: 11px;
+}
+
+.compliance-row {
+  font-size: 11.5px;
+}
+
+.result-hero h2 {
+  font-size: 20px;
+}
+
+.recommendation {
+  font-size: 11.5px;
+}
+
+.detail-tabs button {
+  font-size: 12px;
+}
+
+.callout strong {
+  font-size: 13px;
+}
+
+.callout p,
+.reason-list {
+  font-size: 12px;
+}
+
+.check-head strong {
+  font-size: 12px;
+}
+
+.check-body p,
+.timeline p {
+  font-size: 11.5px;
+}
+
+.timeline-step {
+  font-size: 11px;
+}
+
+.score-summary span {
+  font-size: 10px;
+}
+
+.score-summary strong {
+  font-size: 14px;
+}
+
+.score-card-head strong {
+  font-size: 11.5px;
+}
+
+.score-number {
+  font-size: 13.5px;
+}
+
+.score-card p {
+  font-size: 11px;
+}
+
+.document-row strong {
+  font-size: 12px;
+}
+
+.document-row span,
+.unavailable {
+  font-size: 10.5px !important;
+}
+
+.document-card h4 {
+  font-size: 12px;
+}
+
+.field-grid dt {
+  font-size: 10.5px;
+}
+
+.field-grid dd {
+  font-size: 12px;
+}
+
+.review-case-name {
+  font-size: 12px !important;
+}
+
+.review-case-reason {
+  font-size: 11px !important;
+}
+
+.review-case-meta > span:not(.status-pill) {
+  font-size: 10.5px;
+}
+
+.submission-grid dt {
+  font-size: 10.5px;
+}
+
+.submission-grid dd {
+  font-size: 12px;
+}
+
+.empty-state h3 {
+  font-size: 13.5px;
+}
+
+.empty-state p,
+.loading-card {
+  font-size: 12px;
+}
+
+.master-detail-header h2 {
+  font-size: 20px;
+}
+
+.master-detail-field-copy span {
+  font-size: 10.5px;
+}
+
+.master-detail-field-copy strong {
+  font-size: 12px;
+}
+
+.copy-field-button {
+  font-size: 10.5px;
+}
+
+.footer {
+  font-size: 10.5px;
+}
+
+/* Keep gutters tight on common enterprise laptop widths too. */
+@media (max-width: 1600px) {
+  .main-content {
+    width: calc(100% - 28px);
+  }
+}
+
+@media (max-width: 1366px) {
+  .main-content {
+    width: calc(100% - 22px);
+    padding-top: 18px;
+  }
+}
+
+@media (max-width: 820px) {
+  .main-content {
+    width: calc(100% - 18px);
+  }
+
+  body {
+    font-size: 14.5px;
+  }
+}
