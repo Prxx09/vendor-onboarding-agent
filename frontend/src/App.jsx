@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardList,
+  Copy,
   FileCheck2,
   FileSearch,
   FileText,
@@ -32,6 +33,7 @@ import {
   getConfig,
   getDashboard,
   getHealth,
+  getMasterVendor,
   getReviewQueue,
   getVendor,
   listMasterVendors,
@@ -358,6 +360,7 @@ function MissingDocumentUpload({ result, config, onUpdated, title = "Supply Miss
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [selectedMasterVendor, setSelectedMasterVendor] = useState(null);
 
   const policy = config?.upload;
 
@@ -479,10 +482,8 @@ function VerificationResult({ result, config, onReset, onUpdated }) {
   );
 }
 
-function MasterVendorTable({ rows, onOpenCase }) {
-  const openRow = (row) => {
-    if (row.source_case_id) onOpenCase(row.source_case_id);
-  };
+function MasterVendorTable({ rows, onOpenVendor }) {
+  const openRow = (row) => onOpenVendor(row.vendor_code);
 
   return (
     <div className="table-wrap">
@@ -503,11 +504,11 @@ function MasterVendorTable({ rows, onOpenCase }) {
           {rows.map((row) => (
             <tr
               key={row.vendor_code}
-              className={row.source_case_id ? "clickable-row" : ""}
-              tabIndex={row.source_case_id ? 0 : undefined}
+              className="clickable-row"
+              tabIndex={0}
               onClick={() => openRow(row)}
               onKeyDown={(event) => {
-                if (row.source_case_id && (event.key === "Enter" || event.key === " ")) {
+                if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   openRow(row);
                 }
@@ -529,16 +530,14 @@ function MasterVendorTable({ rows, onOpenCase }) {
               <td><StatusPill value={row.bank_verification_status || "NOT_AVAILABLE"} /></td>
               <td><StatusPill value={row.status || "ACTIVE"} /></td>
               <td className="master-vendor-action">
-                {row.source_case_id
-                  ? <button
-                      className="icon-button row-action"
-                      aria-label={"Open " + row.legal_name + " onboarding case"}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenCase(row.source_case_id);
-                      }}
-                    ><ChevronRight size={18} /></button>
-                  : null}
+                <button
+                  className="icon-button row-action"
+                  aria-label={"View " + row.legal_name + " details"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenVendor(row.vendor_code);
+                  }}
+                ><ChevronRight size={18} /></button>
               </td>
             </tr>
           ))}
@@ -547,6 +546,122 @@ function MasterVendorTable({ rows, onOpenCase }) {
     </div>
   );
 }
+function MasterVendorDetailsModal({ vendorCode, onClose, onOpenCase }) {
+  const [vendor, setVendor] = useState(null);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState("");
+  const [copiedField, setCopiedField] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setBusy(true);
+    setError("");
+    getMasterVendor(vendorCode)
+      .then((payload) => {
+        if (active) setVendor(payload);
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => { active = false; };
+  }, [vendorCode]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  const details = vendor?.intake_details || {};
+  const fields = [
+    ["Legal Vendor Name", details.legal_name],
+    ["Tax ID / GSTIN", details.tax_id],
+    ["PAN", details.pan],
+    ["Bank Account", details.bank_account],
+    ["IFSC / SWIFT", details.ifsc],
+    ["Registered Address", details.registered_address],
+    ["Primary Contact Name", details.contact_name],
+    ["Primary Contact Email", details.contact_email],
+    ["Primary Contact Phone", details.contact_phone],
+    ["Categories / Capabilities", Array.isArray(details.categories) ? details.categories.join(", ") : details.categories],
+    ["Region", details.region],
+    ["Submitted By", details.submitted_by],
+    ["Compliance Confirmation", details.compliance_confirmed === true ? "Yes" : details.compliance_confirmed === false ? "No" : null],
+  ];
+
+  const copyValue = async (label, value) => {
+    if (value === null || value === undefined || value === "") return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+      setCopiedField(label);
+      window.setTimeout(() => setCopiedField((current) => current === label ? "" : current), 1400);
+    } catch {
+      setCopiedField("");
+    }
+  };
+
+  return (
+    <div className="master-detail-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="master-detail-modal" role="dialog" aria-modal="true" aria-labelledby="master-vendor-detail-title">
+        <div className="master-detail-header">
+          <div>
+            <div className="eyebrow">Vendor Master Record</div>
+            <h2 id="master-vendor-detail-title">{vendor?.legal_name || "Vendor Details"}</h2>
+            {vendor && <div className="pill-row"><StatusPill value={vendor.status || "ACTIVE"} /><StatusPill value={vendor.verification_status || "VERIFIED"} /></div>}
+          </div>
+          <button className="icon-button" aria-label="Close Vendor Details" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        {busy ? (
+          <div className="master-detail-loading"><RefreshCw className="spin" size={18} /> Loading Vendor Details…</div>
+        ) : error ? (
+          <div className="form-error"><XCircle size={18} />{error}</div>
+        ) : (
+          <div className="master-detail-body">
+            <div className="master-detail-grid">
+              {fields.map(([label, value]) => {
+                const displayValue = value === null || value === undefined || value === "" ? "Not Provided" : String(value);
+                const canCopy = displayValue !== "Not Provided";
+                return (
+                  <div className="master-detail-field" key={label}>
+                    <div className="master-detail-field-copy">
+                      <span>{label}</span>
+                      <strong className={!canCopy ? "empty" : ""}>{displayValue}</strong>
+                    </div>
+                    <button
+                      className={`copy-field-button ${copiedField === label ? "copied" : ""}`}
+                      aria-label={canCopy ? `Copy ${label}` : `${label} Not Provided`}
+                      title={canCopy ? `Copy ${label}` : "Not Provided"}
+                      disabled={!canCopy}
+                      onClick={() => copyValue(label, displayValue)}
+                    >
+                      {copiedField === label ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                      <span>{copiedField === label ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {vendor?.source_case_id && (
+          <div className="master-detail-footer">
+            <button className="ghost-button" onClick={() => { onClose(); onOpenCase(vendor.source_case_id); }}>
+              <ClipboardList size={16} /> Open Onboarding Case
+            </button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function DashboardView({ onOpenCase }) {
   const [data, setData] = useState(null);
   const [masterVendors, setMasterVendors] = useState([]);
@@ -558,6 +673,7 @@ function DashboardView({ onOpenCase }) {
   const [kycStatus, setKycStatus] = useState("");
   const [bankStatus, setBankStatus] = useState("");
   const [busy, setBusy] = useState(true);
+  const [selectedMasterVendor, setSelectedMasterVendor] = useState(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -699,9 +815,17 @@ function DashboardView({ onOpenCase }) {
           <div className="panel">
             <div className="panel-title"><Building2 size={19} /> Global Vendor Master</div>
             {visibleVendors.length
-              ? <MasterVendorTable rows={visibleVendors} onOpenCase={onOpenCase} />
+              ? <MasterVendorTable rows={visibleVendors} onOpenVendor={setSelectedMasterVendor} />
               : <EmptyState title="No Master Vendors Found" copy="No approved vendor matches the current filters." icon={Building2} />}
           </div>
+
+          {selectedMasterVendor && (
+            <MasterVendorDetailsModal
+              vendorCode={selectedMasterVendor}
+              onClose={() => setSelectedMasterVendor(null)}
+              onOpenCase={onOpenCase}
+            />
+          )}
         </>
       )}
     </section>
