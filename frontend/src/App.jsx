@@ -920,7 +920,7 @@ function CaseTable({ rows, onOpen }) {
                 }
               }}
             >
-              <td><strong>{row.legal_name}</strong><div className="table-subtext mono">{row.id}</div><div className="table-subtext">{row.region || "Region Not Set"}</div></td>
+              <td><strong>{row.legal_name}</strong><div className="table-subtext mono">{row.id}</div></td>
               <td><StatusPill value={row.status} /></td>
               <td>{formatPercent(row.confidence_score)}</td>
               <td>{row.category || "—"}</td>
