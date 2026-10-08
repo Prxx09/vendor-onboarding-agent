@@ -311,6 +311,7 @@ class VendorVerificationAgent:
 
     async def _verify_external(self, state: AgentState) -> dict:
         company = self._doc(state, "business_registration")
+        company = self._doc(state, "business_registration")
         tax = self._doc(state, "tax_certificate")
         bank = self._doc(state, "bank_proof")
         submitted = state.get("submitted_data", {})
