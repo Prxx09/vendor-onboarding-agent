@@ -740,7 +740,70 @@ class VendorRepository:
             .limit(1)
             .execute()
         )
-        return result.data[0] if result.data else None
+        if not result.data:
+            return None
+
+        master = result.data[0]
+        source_case: dict = {}
+        source_case_id = master.get("source_case_id")
+        if source_case_id:
+            rows = (
+                self.db.table("verification_vendors")
+                .select(
+                    "id,submitted_data,submitted_by,compliance_confirmed,"
+                    "region,category,categories,contact_name,contact_email,contact_phone"
+                )
+                .eq("id", source_case_id)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            if rows:
+                source_case = rows[0]
+
+        submitted = source_case.get("submitted_data") or {}
+        categories = _normalize_categories(
+            submitted.get("categories")
+            or source_case.get("categories")
+            or source_case.get("category")
+            or master.get("categories")
+        )
+
+        master["intake_details"] = {
+            "legal_name": master.get("legal_name"),
+            "tax_id": submitted.get("tax_id") or master.get("tax_id"),
+            "pan": submitted.get("pan") or master.get("pan"),
+            "bank_account": submitted.get("bank_account") or master.get("account_number"),
+            "ifsc": submitted.get("ifsc") or master.get("ifsc_swift"),
+            "registered_address": (
+                submitted.get("registered_address") or master.get("registered_address")
+            ),
+            "contact_name": (
+                submitted.get("contact_name")
+                or source_case.get("contact_name")
+                or master.get("primary_contact_name")
+            ),
+            "contact_email": (
+                submitted.get("contact_email")
+                or source_case.get("contact_email")
+                or master.get("primary_contact_email")
+            ),
+            "contact_phone": (
+                submitted.get("contact_phone")
+                or source_case.get("contact_phone")
+                or master.get("primary_contact_phone")
+            ),
+            "categories": categories,
+            "region": submitted.get("region") or source_case.get("region") or master.get("region"),
+            "submitted_by": submitted.get("submitted_by") or source_case.get("submitted_by"),
+            "compliance_confirmed": (
+                submitted.get("compliance_confirmed")
+                if "compliance_confirmed" in submitted
+                else source_case.get("compliance_confirmed")
+            ),
+        }
+        return master
 
     async def list_registered_vendors(self) -> list[dict]:
         return await self.list_master_vendors()
