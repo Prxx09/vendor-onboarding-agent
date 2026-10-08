@@ -80,6 +80,10 @@ class VendorProcessResult(BaseModel):
     submitted_data: dict[str, Any] = Field(default_factory=dict)
 
 
+class AutoApprovalThresholdUpdate(BaseModel):
+    auto_approval_threshold: float = Field(ge=0, le=100)
+
+
 class HumanReviewRequest(BaseModel):
     decision: Literal["APPROVE", "REJECT", "REQUEST_INFORMATION"]
     reviewer: str
