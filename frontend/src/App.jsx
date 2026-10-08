@@ -1797,8 +1797,6 @@ export default function App() {
     // ["audit", "Audit Trail", History], // Disabled for the current demo.
   ];
 
-  const currentSection = nav.find(([key]) => key === view)?.[1] || "Vendor Verification";
-
   return (
     <div className="app-shell">
       <Toast toast={toast} onClose={() => setToast(null)} />
@@ -1839,16 +1837,6 @@ export default function App() {
       </aside>
 
       <div className={`workspace-shell ${view === "review" ? "review-mode" : ""}`}>
-        <header className="topbar">
-          <div className="workspace-heading">
-            <strong>{currentSection}</strong>
-          </div>
-          <div className={`health-badge ${health}`}>
-            <span className="health-dot" />
-            <div><strong>{health === "online" ? "Backend Connected" : health === "offline" ? "Backend Unavailable" : "Checking Backend"}</strong><span>{API_BASE_URL}</span></div>
-          </div>
-        </header>
-
         <main className="main-content">
           {configError && <div className="form-error"><XCircle size={18} />{configError}</div>}
           {view === "dashboard" && (
