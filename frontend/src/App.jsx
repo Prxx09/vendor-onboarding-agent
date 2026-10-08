@@ -40,6 +40,7 @@ import {
   listVendors,
   processVendor,
   reviewVendor,
+  updateAutoApprovalThreshold,
   uploadVendorDocuments,
 } from "./api";
 
@@ -660,7 +661,7 @@ function MasterVendorDetailsModal({ vendorCode, onClose, onOpenCase }) {
   );
 }
 
-function DashboardView({ onOpenCase }) {
+function DashboardView({ onOpenCase, notify, onThresholdUpdated }) {
   const [data, setData] = useState(null);
   const [masterVendors, setMasterVendors] = useState([]);
   const [query, setQuery] = useState("");
@@ -673,6 +674,10 @@ function DashboardView({ onOpenCase }) {
   const [busy, setBusy] = useState(true);
   const [selectedMasterVendor, setSelectedMasterVendor] = useState(null);
   const [error, setError] = useState("");
+  const [thresholdEditing, setThresholdEditing] = useState(false);
+  const [thresholdDraft, setThresholdDraft] = useState("80");
+  const [thresholdSaving, setThresholdSaving] = useState(false);
+  const [thresholdError, setThresholdError] = useState("");
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -700,6 +705,42 @@ function DashboardView({ onOpenCase }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!thresholdEditing && data?.auto_approval_threshold !== null && data?.auto_approval_threshold !== undefined) {
+      setThresholdDraft(String(data.auto_approval_threshold));
+    }
+  }, [data?.auto_approval_threshold, thresholdEditing]);
+
+  const saveThreshold = async () => {
+    const numericValue = Number(thresholdDraft);
+    if (!Number.isFinite(numericValue) || numericValue < 0 || numericValue > 100) {
+      setThresholdError("Enter a value from 0 to 100.");
+      return;
+    }
+
+    setThresholdSaving(true);
+    setThresholdError("");
+    try {
+      const payload = await updateAutoApprovalThreshold(numericValue);
+      const savedValue = Number(payload.auto_approval_threshold);
+      setData((current) => current ? { ...current, auto_approval_threshold: savedValue } : current);
+      setThresholdDraft(String(savedValue));
+      setThresholdEditing(false);
+      onThresholdUpdated?.(savedValue);
+      notify?.({ tone: "success", message: `Auto-approval threshold updated to ${formatPercent(savedValue)}.` });
+    } catch (err) {
+      setThresholdError(err.message);
+    } finally {
+      setThresholdSaving(false);
+    }
+  };
+
+  const cancelThresholdEdit = () => {
+    setThresholdDraft(String(data?.auto_approval_threshold ?? 80));
+    setThresholdError("");
+    setThresholdEditing(false);
+  };
 
   const categories = Array.from(new Set(masterVendors.flatMap((row) => row.categories || []))).sort();
   const regions = Array.from(new Set(masterVendors.map((row) => row.region).filter(Boolean))).sort();
@@ -757,12 +798,50 @@ function DashboardView({ onOpenCase }) {
             <Metric label="Needs Information" value={data?.action_required_cases} icon={CircleAlert} tone="warning" />
           </div>
 
-          <div className="dashboard-summary-strip">
-            <div><span>Onboarding Cases</span><strong>{data?.total_cases ?? "—"}</strong></div>
-            <div><span>Approval Rate</span><strong>{formatPercent(data?.approval_rate)}</strong></div>
-            <div><span>Average Confidence</span><strong>{formatPercent(data?.average_confidence_score)}</strong></div>
-            <div><span>Auto-Approval Threshold</span><strong>{data?.auto_approval_threshold === null || data?.auto_approval_threshold === undefined ? "Not Configured" : formatPercent(data.auto_approval_threshold)}</strong></div>
-            <div><span>Recently Updated</span><strong>{formatDate(data?.recently_updated_at)}</strong></div>
+          <div className="dashboard-summary-strip master-summary-strip">
+            <div className="summary-item">
+              <span>Onboarding Cases</span>
+              <strong>{data?.total_cases ?? "—"}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Approval Rate</span>
+              <strong>{formatPercent(data?.approval_rate)}</strong>
+            </div>
+            <div className="summary-item threshold-summary-item">
+              <span>Auto-Approval Threshold</span>
+              {thresholdEditing ? (
+                <div className="threshold-editor">
+                  <div className="threshold-input-wrap">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={thresholdDraft}
+                      onChange={(event) => setThresholdDraft(event.target.value)}
+                      aria-label="Auto-Approval Threshold"
+                    />
+                    <span>%</span>
+                  </div>
+                  <button className="threshold-save" type="button" onClick={saveThreshold} disabled={thresholdSaving}>
+                    {thresholdSaving ? "Saving…" : "Save"}
+                  </button>
+                  <button className="threshold-cancel" type="button" onClick={cancelThresholdEdit} disabled={thresholdSaving}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="threshold-display">
+                  <strong>{formatPercent(data?.auto_approval_threshold ?? 80)}</strong>
+                  <button type="button" onClick={() => setThresholdEditing(true)}>Edit</button>
+                </div>
+              )}
+              {thresholdError && <small className="threshold-error">{thresholdError}</small>}
+            </div>
+            <div className="summary-item">
+              <span>Recently Updated</span>
+              <strong>{formatDate(data?.recently_updated_at)}</strong>
+            </div>
           </div>
 
           <div className="toolbar panel master-toolbar master-filter-toolbar">
@@ -807,7 +886,6 @@ function DashboardView({ onOpenCase }) {
               {bankStatuses.map((value) => <option value={value} key={value}>{titleCase(value)}</option>)}
             </select>
 
-            <span className="master-count">{visibleVendors.length} Of {masterVendors.length} Vendors</span>
           </div>
 
           <div className="panel">
@@ -1781,7 +1859,19 @@ export default function App() {
 
         <main className="main-content">
           {configError && <div className="form-error"><XCircle size={18} />{configError}</div>}
-          {view === "dashboard" && <DashboardView onOpenCase={openCase} />}
+          {view === "dashboard" && (
+            <DashboardView
+              onOpenCase={openCase}
+              notify={setToast}
+              onThresholdUpdated={(value) => setConfig((current) => ({
+                ...(current || {}),
+                verification: {
+                  ...(current?.verification || {}),
+                  auto_approval_threshold: value,
+                },
+              }))}
+            />
+          )}
           {view === "cases" && <CasesView key={caseId || "cases"} initialCaseId={caseId} config={config} />}
           {view === "intake" && (config ? <NewVendorView config={config} notify={setToast} /> : <div className="loading-card"><RefreshCw className="spin" /> Loading intake policy…</div>)}
           {view === "review" && <ReviewQueueView config={config} notify={setToast} />}
