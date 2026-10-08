@@ -3752,3 +3752,16 @@ body {
     top: 58px;
   }
 }
+
+
+/* Master vendor category chips: use a consistent verified-style green treatment. */
+.master-vendor-table .category-list > span {
+  border-color: #cfe7d8 !important;
+  background: var(--green-soft) !important;
+  color: var(--green) !important;
+  font-weight: 700;
+}
+
+.master-vendor-table .category-list > span.registered-only {
+  border: 1px solid #cfe7d8;
+}
