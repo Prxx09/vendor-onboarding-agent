@@ -542,7 +542,6 @@ class VendorVerificationAgent:
                 )
             )
 
-        company = self._doc(state, "business_registration")
         if company:
             expiry = _parse_date(company.expiry_date)
             if expiry and expiry < date.today():
@@ -603,6 +602,21 @@ class VendorVerificationAgent:
             return None, []
 
         overall = sum(item.score for item in scorecard) / len(scorecard)
+
+        integrity_issue = any(
+            check.status == "MISMATCH"
+            or (
+                check.status == "REVIEW_REQUIRED"
+                and check.source in {"vendor_master", "vendor_master_snapshot"}
+            )
+            for check in state.get("checks", [])
+        )
+        if integrity_issue:
+            # Duplicate identities and registry/document mismatches are hard
+            # verification exceptions. They must never appear as a high-
+            # confidence auto-approval candidate.
+            overall = min(overall, 60.0)
+
         return round(overall, 1), scorecard
 
     async def _decide(self, state: AgentState) -> dict:
@@ -620,10 +634,28 @@ class VendorVerificationAgent:
 
         if problematic:
             reasons.extend(check.message for check in problematic)
+
+            integrity_issue = any(
+                check.status == "MISMATCH"
+                or (
+                    check.status == "REVIEW_REQUIRED"
+                    and check.source in {"vendor_master", "vendor_master_snapshot"}
+                )
+                for check in problematic
+            )
+            if integrity_issue:
+                reasons.append(
+                    "Duplicate or inconsistent vendor identity data detected; automatic approval is disabled."
+                )
+
             events.append(
                 AgentEvent(
                     step="decision",
-                    message="Issues detected. Sent to human review with reject recommendation.",
+                    message=(
+                        "Duplicate or inconsistent vendor data detected. Sent directly to human review."
+                        if integrity_issue
+                        else "Issues detected. Sent to human review with reject recommendation."
+                    ),
                 )
             )
             return {
