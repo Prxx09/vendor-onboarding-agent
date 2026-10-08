@@ -6,7 +6,6 @@ from uuid import uuid4
 from langgraph.graph import END, START, StateGraph
 from rapidfuzz.fuzz import token_set_ratio
 
-from app.core.config import get_settings
 from app.domain.models import (
     AgentEvent,
     DocumentExtraction,
@@ -102,13 +101,6 @@ def _extraction_coverage_score(extractions: list[DocumentExtraction]) -> float:
     if not EXTRACTABLE_INTAKE_FIELDS:
         return 0.0
     return round(len(extracted) / len(EXTRACTABLE_INTAKE_FIELDS) * 100.0, 1)
-
-
-def _threshold_percent() -> float | None:
-    configured = get_settings().AUTO_APPROVAL_THRESHOLD
-    if configured is None:
-        return None
-    return configured * 100.0 if configured <= 1 else configured
 
 
 class VendorVerificationAgent:
@@ -552,7 +544,7 @@ class VendorVerificationAgent:
         events = list(state.get("events", []))
         reasons = list(state.get("reasons", []))
         confidence_score, _ = self._score_state(state)
-        threshold = _threshold_percent()
+        threshold = await self.repository.get_auto_approval_threshold()
 
         if problematic:
             reasons.extend(check.message for check in problematic)
