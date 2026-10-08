@@ -3722,3 +3722,33 @@ body {
       "message message";
   }
 }
+
+
+/* Workspace header removed: pages now begin directly in the content area. */
+.workspace-shell .main-content {
+  padding-top: 18px;
+}
+
+.workspace-shell .upload-panel {
+  top: 14px;
+}
+
+.workspace-shell .review-sidebar {
+  top: 14px;
+}
+
+.workspace-shell.review-mode .main-content {
+  padding-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .workspace-shell .main-content {
+    padding-top: 14px;
+  }
+
+  /* Mobile navigation remains sticky, so sticky page elements sit below it. */
+  .workspace-shell .upload-panel,
+  .workspace-shell .review-sidebar {
+    top: 58px;
+  }
+}
