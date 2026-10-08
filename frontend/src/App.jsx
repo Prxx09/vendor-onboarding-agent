@@ -1632,8 +1632,8 @@ function ReviewQueueView({ config, notify }) {
   });
 
   return (
-    <section className="page-stack">
-      <div className="section-heading"><div><div className="eyebrow">Exception Handling</div><h1>Human Review Queue</h1><p>Review flagged vendor cases, supporting evidence, and verification results.</p></div><button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
+    <section className="page-stack review-page">
+      <div className="section-heading review-page-heading"><div><div className="eyebrow">Exception Handling</div><h1>Human Review Queue</h1><p>Review flagged vendor cases, supporting evidence, and verification results.</p></div><button className="ghost-button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
       {error && <div className="form-error"><XCircle size={18} />{error}</div>}
       <div className="review-layout">
         <aside className="panel review-sidebar">
@@ -1839,7 +1839,7 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="workspace-shell">
+      <div className={`workspace-shell ${view === "review" ? "review-mode" : ""}`}>
         <header className="topbar">
           <div className="workspace-heading">
             <span>Vendor Verification</span>
