@@ -3535,3 +3535,156 @@ body {
     min-width: 1080px;
   }
 }
+
+
+/* ==========================================================================
+   Review Queue Split Workspace
+   Keep the queue/context fixed while case-specific detail owns the vertical
+   scroll. This prevents losing the selected-case list during long reviews.
+   ========================================================================== */
+
+.workspace-shell.review-mode {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-shell.review-mode .topbar {
+  flex: 0 0 58px;
+}
+
+.workspace-shell.review-mode .main-content {
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 14px;
+}
+
+.workspace-shell.review-mode .footer {
+  display: none;
+}
+
+.review-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.review-page-heading {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.review-page > .form-error {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.review-page .review-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.review-page .review-sidebar {
+  position: relative;
+  top: auto;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  overflow: hidden;
+}
+
+.review-page .review-sidebar .search-field {
+  flex: 0 0 auto;
+}
+
+.review-page .review-case-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.review-page .review-workspace {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+}
+
+.review-page .review-workspace > .page-stack {
+  min-height: min-content;
+  padding-bottom: 24px;
+}
+
+.review-page .review-workspace::-webkit-scrollbar,
+.review-page .review-case-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.review-page .review-workspace::-webkit-scrollbar-thumb,
+.review-page .review-case-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #c9d0d9;
+}
+
+.review-page .review-workspace::-webkit-scrollbar-track,
+.review-page .review-case-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Once the split workspace stacks vertically, return to normal document
+   scrolling so tablet/mobile behavior remains unchanged. */
+@media (max-width: 1120px) {
+  .workspace-shell.review-mode {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .workspace-shell.review-mode .main-content {
+    overflow: visible;
+    padding-bottom: 36px;
+  }
+
+  .workspace-shell.review-mode .footer {
+    display: flex;
+  }
+
+  .review-page {
+    height: auto;
+    overflow: visible;
+  }
+
+  .review-page .review-layout {
+    overflow: visible;
+  }
+
+  .review-page .review-sidebar {
+    height: auto;
+    overflow: visible;
+  }
+
+  .review-page .review-case-list {
+    overflow: visible;
+  }
+
+  .review-page .review-workspace {
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+}
