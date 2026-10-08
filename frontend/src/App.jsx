@@ -804,7 +804,6 @@ function DashboardView({ onOpenCase, notify, onThresholdUpdated }) {
             <div className="metric-card dashboard-threshold-card">
               <div className="metric-icon"><SearchCheck size={20} /></div>
               <div className="dashboard-threshold-content">
-                <div className="metric-label">Auto-Approval Threshold</div>
                 {thresholdEditing ? (
                   <div className="threshold-editor">
                     <div className="threshold-input-wrap">
@@ -832,6 +831,7 @@ function DashboardView({ onOpenCase, notify, onThresholdUpdated }) {
                     <button type="button" onClick={() => setThresholdEditing(true)}>Edit</button>
                   </div>
                 )}
+                <div className="metric-label">Auto-Approval Threshold</div>
                 {thresholdError && <small className="threshold-error">{thresholdError}</small>}
               </div>
             </div>
