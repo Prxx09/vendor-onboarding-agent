@@ -57,6 +57,17 @@ create table if not exists sanctions_registry (
     source_system text default 'SYNTHETIC_SANCTIONS_SERVICE'
 );
 
+create table if not exists app_settings (
+    key text primary key,
+    value_json jsonb not null default '{}'::jsonb,
+    updated_at timestamptz not null default now()
+);
+
+insert into app_settings (key, value_json)
+values ('auto_approval_threshold', '{"value": 80}'::jsonb)
+on conflict (key) do nothing;
+
+
 create table if not exists vendor_master_snapshot (
     vendor_id text primary key,
     legal_name text not null,
