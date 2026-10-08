@@ -1365,3 +1365,38 @@ select:focus-visible,
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* Vendor Master: retain operational columns, remove secondary vendor metadata only */
+.master-vendor-table {
+  min-width: 1040px;
+}
+.master-vendor-table th:first-child,
+.master-vendor-table td:first-child {
+  width: 34%;
+}
+.master-vendor-table th:last-child,
+.master-vendor-table td:last-child {
+  width: 48px;
+  text-align: right;
+}
+.master-vendor-name strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.master-vendor-table td {
+  padding-top: 13px;
+  padding-bottom: 13px;
+  vertical-align: middle;
+}
+.master-vendor-table .category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.master-vendor-table .category-list > span {
+  white-space: nowrap;
+}
