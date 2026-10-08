@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from app.agent.vendor_agent import REQUIRED_DOCUMENTS, VendorVerificationAgent
 from app.core.config import get_settings
-from app.domain.models import DocumentExtraction, HumanReviewRequest, VendorProcessResult
+from app.domain.models import AutoApprovalThresholdUpdate, DocumentExtraction, HumanReviewRequest, VendorProcessResult
 from app.ocr.factory import get_ocr_provider
 from app.providers.factory import get_verification_provider
 from app.repositories.vendor_repository import VendorRepository
@@ -50,6 +50,7 @@ REQUIRED_SUPABASE_TABLES = [
     "sanctions_registry",
     "vendor_master_snapshot",
     "vendor_master",
+    "app_settings",
 ]
 
 
@@ -238,9 +239,7 @@ def _clean_submitted_data(**values: Any) -> dict[str, Any]:
 @router.get("/config")
 async def frontend_config():
     settings = get_settings()
-    threshold = settings.AUTO_APPROVAL_THRESHOLD
-    if threshold is not None and threshold <= 1:
-        threshold *= 100.0
+    threshold = await _repository().get_auto_approval_threshold()
     return {
         "workflow_stages": WORKFLOW_STAGES,
         "storage": {
@@ -271,6 +270,17 @@ async def frontend_config():
                 if value
             },
         },
+    }
+
+
+@router.put("/config/auto-approval-threshold")
+async def update_auto_approval_threshold(payload: AutoApprovalThresholdUpdate):
+    value = await _repository().set_auto_approval_threshold(
+        payload.auto_approval_threshold
+    )
+    return {
+        "auto_approval_threshold": value,
+        "message": "Auto-approval threshold updated successfully.",
     }
 
 
