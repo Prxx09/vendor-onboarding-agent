@@ -1726,38 +1726,73 @@ export default function App() {
     // ["audit", "Audit Trail", History], // Disabled for the current demo.
   ];
 
+  const currentSection = nav.find(([key]) => key === view)?.[1] || "Vendor Verification";
+
   return (
     <div className="app-shell">
       <Toast toast={toast} onClose={() => setToast(null)} />
-      <header className="topbar">
-        <button className="brand" aria-label="Open New Vendor Onboarding" onClick={() => { setCaseId(null); setView("intake"); }}>
-          <div className="brand-mark"><ShieldCheck size={22} /></div>
-          <div><strong>Vendor Verify</strong><span>Verification Agent</span></div>
+
+      <aside className="sidebar">
+        <button className="sidebar-brand" aria-label="Open New Vendor Onboarding" onClick={() => { setCaseId(null); setView("intake"); }}>
+          <div className="brand-mark"><ShieldCheck size={21} /></div>
+          <div className="sidebar-brand-copy">
+            <strong>Vendor Verify</strong>
+            <span>Verification Agent</span>
+          </div>
         </button>
-        <nav className="nav-tabs">
+
+        <div className="sidebar-section-label">Workspace</div>
+        <nav className="sidebar-nav" aria-label="Primary Navigation">
           {nav.map(([key, label, Icon]) => (
-            <button className={view === key ? "active" : ""} key={key} onClick={() => { setCaseId(null); setView(key); }}><Icon size={16} /> {label}</button>
+            <button
+              className={view === key ? "active" : ""}
+              key={key}
+              onClick={() => { setCaseId(null); setView(key); }}
+              aria-current={view === key ? "page" : undefined}
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </button>
           ))}
         </nav>
-        <div className={`health-badge ${health}`}>
-          <span className="health-dot" />
-          <div><strong>{health === "online" ? "Backend Connected" : health === "offline" ? "Backend Unavailable" : "Checking Backend"}</strong><span>{API_BASE_URL}</span></div>
+
+        <div className="sidebar-footer">
+          <div className={`sidebar-health ${health}`}>
+            <span className="health-dot" />
+            <div>
+              <strong>{health === "online" ? "Backend Connected" : health === "offline" ? "Backend Unavailable" : "Checking Backend"}</strong>
+              <span>{health === "online" ? "Verification services available" : API_BASE_URL}</span>
+            </div>
+          </div>
         </div>
-      </header>
+      </aside>
 
-      <main className="main-content">
-        {configError && <div className="form-error"><XCircle size={18} />{configError}</div>}
-        {view === "dashboard" && <DashboardView onOpenCase={openCase} />}
-        {view === "cases" && <CasesView key={caseId || "cases"} initialCaseId={caseId} config={config} />}
-        {view === "intake" && (config ? <NewVendorView config={config} notify={setToast} /> : <div className="loading-card"><RefreshCw className="spin" /> Loading intake policy…</div>)}
-        {view === "review" && <ReviewQueueView config={config} notify={setToast} />}
-        {/* {view === "audit" && <AuditView />} Audit Trail disabled for the current demo. */}
-      </main>
+      <div className="workspace-shell">
+        <header className="topbar">
+          <div className="workspace-heading">
+            <span>Vendor Verification</span>
+            <strong>{currentSection}</strong>
+          </div>
+          <div className={`health-badge ${health}`}>
+            <span className="health-dot" />
+            <div><strong>{health === "online" ? "Backend Connected" : health === "offline" ? "Backend Unavailable" : "Checking Backend"}</strong><span>{API_BASE_URL}</span></div>
+          </div>
+        </header>
 
-      <footer className="footer">
-        <span>Vendor Verification Workspace</span>
-        <span>Document Intake · Verification · Human Review</span>
-      </footer>
+        <main className="main-content">
+          {configError && <div className="form-error"><XCircle size={18} />{configError}</div>}
+          {view === "dashboard" && <DashboardView onOpenCase={openCase} />}
+          {view === "cases" && <CasesView key={caseId || "cases"} initialCaseId={caseId} config={config} />}
+          {view === "intake" && (config ? <NewVendorView config={config} notify={setToast} /> : <div className="loading-card"><RefreshCw className="spin" /> Loading intake policy…</div>)}
+          {view === "review" && <ReviewQueueView config={config} notify={setToast} />}
+          {/* {view === "audit" && <AuditView />} Audit Trail disabled for the current demo. */}
+        </main>
+
+        <footer className="footer">
+          <span>Vendor Verification Workspace</span>
+          <span>Document Intake · Verification · Human Review</span>
+        </footer>
+      </div>
     </div>
   );
 }
