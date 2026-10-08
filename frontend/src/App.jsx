@@ -486,16 +486,10 @@ function MasterVendorTable({ rows, onOpenCase }) {
 
   return (
     <div className="table-wrap">
-      <table className="case-table master-vendor-table">
+      <table className="case-table master-vendor-table master-vendor-simple">
         <thead>
           <tr>
             <th>Vendor</th>
-            <th>Categories</th>
-            <th>Region</th>
-            <th>Verification</th>
-            <th>KYC / KYB</th>
-            <th>Bank</th>
-            <th>Status</th>
             <th />
           </tr>
         </thead>
@@ -513,25 +507,8 @@ function MasterVendorTable({ rows, onOpenCase }) {
                 }
               }}
             >
-              <td>
-                <strong>{row.legal_name}</strong>
-                <div className="table-subtext mono">{row.vendor_code}</div>
-                {row.tax_id && <div className="table-subtext">Tax ID: {row.tax_id}</div>}
-                {row.primary_contact_email && <div className="table-subtext">{row.primary_contact_email}</div>}
-              </td>
-              <td>
-                <div className="category-list">
-                  {(row.categories || []).length
-                    ? row.categories.map((category) => <span key={category}>{category}</span>)
-                    : <span className="registered-only">Uncategorized</span>}
-                </div>
-              </td>
-              <td>{row.region || "—"}</td>
-              <td><StatusPill value={row.verification_status || "NOT_AVAILABLE"} /></td>
-              <td><StatusPill value={row.kyc_status || "NOT_AVAILABLE"} /></td>
-              <td><StatusPill value={row.bank_verification_status || "NOT_AVAILABLE"} /></td>
-              <td><StatusPill value={row.status || "ACTIVE"} /></td>
-              <td>
+              <td><strong>{row.legal_name}</strong></td>
+              <td className="master-vendor-action">
                 {row.source_case_id
                   ? <button
                       className="icon-button row-action"
@@ -1353,9 +1330,9 @@ function ReviewCase({ vendorId, config, onCompleted, notify }) {
         <div className="result-hero-copy"><div className="eyebrow">Human Review</div><h2>{vendor.legal_name}</h2><div className="pill-row"><StatusPill value={vendor.status} /><span className="recommendation">Agent Recommendation: <strong>{formatStatus(vendor.agent_recommendation)}</strong></span><span className="recommendation">Confidence: <strong>{formatPercent(latest.confidence_score)}</strong></span>{vendor.risk_level && <span className="recommendation">Risk: <strong>{titleCase(vendor.risk_level)}</strong></span>}</div></div>
       </div>
       {vendor.reasons?.length > 0 && <div className="panel"><div className="panel-title"><AlertTriangle size={19} /> Why This Case Needs Review</div><ul className="reason-list">{vendor.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></div>}
-      <div className="two-column">
-        <div className="panel"><div className="panel-title"><SearchCheck size={19} /> Validation Results</div><CheckList checks={latest.checks || []} /></div>
-        <div className="panel"><div className="panel-title"><BarChart3 size={19} /> Scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
+      <div className="two-column review-analysis-grid">
+        <div className="panel review-analysis-panel"><div className="panel-title"><SearchCheck size={19} /> Validation Results</div><CheckList checks={latest.checks || []} /></div>
+        <div className="panel review-analysis-panel"><div className="panel-title"><BarChart3 size={19} /> Scorecard</div><Scorecard items={latest.scorecard || []} overall={latest.confidence_score} threshold={config?.verification?.auto_approval_threshold ?? null} /></div>
       </div>
       <div className="panel"><div className="panel-title"><FileText size={19} /> Documents</div><DocumentList documents={detail.documents} /></div>
       <div className="panel review-form">
