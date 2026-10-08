@@ -1289,3 +1289,79 @@ select:focus-visible,
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Simplified Global Vendor Master rows */
+.master-vendor-simple {
+  min-width: 0;
+  width: 100%;
+}
+.master-vendor-simple th:first-child,
+.master-vendor-simple td:first-child {
+  width: 100%;
+}
+.master-vendor-simple th:last-child,
+.master-vendor-simple td:last-child {
+  width: 52px;
+  text-align: right;
+}
+.master-vendor-simple td {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.master-vendor-simple td strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
+.master-vendor-action {
+  vertical-align: middle;
+}
+
+/* Review Queue: keep Validation Results and Scorecard perfectly aligned */
+.review-analysis-grid {
+  align-items: stretch !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+.review-analysis-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+}
+.review-analysis-panel > .panel-title {
+  flex: 0 0 48px;
+  min-height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+.review-analysis-panel > .check-list,
+.review-analysis-panel > .scorecard-stack {
+  flex: 1 1 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+.review-analysis-panel > .check-list {
+  padding: 8px 16px 14px;
+}
+.review-analysis-panel > .scorecard-stack {
+  padding: 8px 12px 12px;
+}
+.review-analysis-panel .score-summary {
+  margin-bottom: 10px;
+}
+.review-analysis-panel .score-grid {
+  align-content: start;
+}
+.review-analysis-panel .check-row:first-child,
+.review-analysis-panel .score-summary:first-child {
+  margin-top: 0;
+}
+
+@media (max-width: 1180px) {
+  .review-analysis-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
