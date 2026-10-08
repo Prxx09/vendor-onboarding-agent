@@ -206,6 +206,48 @@ class VendorRepository:
             settings.SUPABASE_SERVICE_ROLE_KEY,
         )
 
+    async def get_auto_approval_threshold(self) -> float:
+        """Return the persisted auto-approval threshold as a 0-100 percentage."""
+        fallback = self.settings.AUTO_APPROVAL_THRESHOLD
+        if fallback is None:
+            fallback = 80.0
+        elif fallback <= 1:
+            fallback *= 100.0
+
+        try:
+            rows = (
+                self.db.table("app_settings")
+                .select("value_json")
+                .eq("key", "auto_approval_threshold")
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            if rows:
+                value_json = rows[0].get("value_json") or {}
+                raw = value_json.get("value") if isinstance(value_json, dict) else None
+                if raw is not None:
+                    return max(0.0, min(100.0, float(raw)))
+        except Exception:
+            pass
+
+        return max(0.0, min(100.0, float(fallback)))
+
+    async def set_auto_approval_threshold(self, value: float) -> float:
+        """Persist the auto-approval threshold and return the normalized value."""
+        normalized = round(max(0.0, min(100.0, float(value))), 2)
+        now = datetime.now(timezone.utc).isoformat()
+        self.db.table("app_settings").upsert(
+            {
+                "key": "auto_approval_threshold",
+                "value_json": {"value": normalized},
+                "updated_at": now,
+            },
+            on_conflict="key",
+        ).execute()
+        return normalized
+
     def _audit(
         self,
         vendor_id: str,
@@ -831,9 +873,7 @@ class VendorRepository:
             if updated and (latest is None or updated > latest):
                 latest = updated
 
-        threshold = self.settings.AUTO_APPROVAL_THRESHOLD
-        if threshold is not None and threshold <= 1:
-            threshold *= 100.0
+        threshold = await self.get_auto_approval_threshold()
 
         return {
             "registered_vendor_count": len(registered_vendors),
