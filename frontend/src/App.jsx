@@ -798,50 +798,44 @@ function DashboardView({ onOpenCase, notify, onThresholdUpdated }) {
             <Metric label="Needs Information" value={data?.action_required_cases} icon={CircleAlert} tone="warning" />
           </div>
 
-          <div className="dashboard-summary-strip master-summary-strip">
-            <div className="summary-item">
-              <span>Onboarding Cases</span>
-              <strong>{data?.total_cases ?? "—"}</strong>
-            </div>
-            <div className="summary-item">
-              <span>Approval Rate</span>
-              <strong>{formatPercent(data?.approval_rate)}</strong>
-            </div>
-            <div className="summary-item threshold-summary-item">
-              <span>Auto-Approval Threshold</span>
-              {thresholdEditing ? (
-                <div className="threshold-editor">
-                  <div className="threshold-input-wrap">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={thresholdDraft}
-                      onChange={(event) => setThresholdDraft(event.target.value)}
-                      aria-label="Auto-Approval Threshold"
-                    />
-                    <span>%</span>
+          <div className="metric-grid dashboard-secondary-metrics">
+            <Metric label="Onboarding Cases" value={data?.total_cases ?? "—"} icon={ClipboardList} />
+            <Metric label="Approval Rate" value={formatPercent(data?.approval_rate)} icon={ShieldCheck} tone="success" />
+            <div className="metric-card dashboard-threshold-card">
+              <div className="metric-icon"><SearchCheck size={20} /></div>
+              <div className="dashboard-threshold-content">
+                <div className="metric-label">Auto-Approval Threshold</div>
+                {thresholdEditing ? (
+                  <div className="threshold-editor">
+                    <div className="threshold-input-wrap">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={thresholdDraft}
+                        onChange={(event) => setThresholdDraft(event.target.value)}
+                        aria-label="Auto-Approval Threshold"
+                      />
+                      <span>%</span>
+                    </div>
+                    <button className="threshold-save" type="button" onClick={saveThreshold} disabled={thresholdSaving}>
+                      {thresholdSaving ? "Saving…" : "Save"}
+                    </button>
+                    <button className="threshold-cancel" type="button" onClick={cancelThresholdEdit} disabled={thresholdSaving}>
+                      Cancel
+                    </button>
                   </div>
-                  <button className="threshold-save" type="button" onClick={saveThreshold} disabled={thresholdSaving}>
-                    {thresholdSaving ? "Saving…" : "Save"}
-                  </button>
-                  <button className="threshold-cancel" type="button" onClick={cancelThresholdEdit} disabled={thresholdSaving}>
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="threshold-display">
-                  <strong>{formatPercent(data?.auto_approval_threshold ?? 80)}</strong>
-                  <button type="button" onClick={() => setThresholdEditing(true)}>Edit</button>
-                </div>
-              )}
-              {thresholdError && <small className="threshold-error">{thresholdError}</small>}
+                ) : (
+                  <div className="threshold-display">
+                    <div className="metric-value">{formatPercent(data?.auto_approval_threshold ?? 80)}</div>
+                    <button type="button" onClick={() => setThresholdEditing(true)}>Edit</button>
+                  </div>
+                )}
+                {thresholdError && <small className="threshold-error">{thresholdError}</small>}
+              </div>
             </div>
-            <div className="summary-item">
-              <span>Recently Updated</span>
-              <strong>{formatDate(data?.recently_updated_at)}</strong>
-            </div>
+            <Metric label="Recently Updated" value={formatDate(data?.recently_updated_at)} icon={History} />
           </div>
 
           <div className="toolbar panel master-toolbar master-filter-toolbar">
