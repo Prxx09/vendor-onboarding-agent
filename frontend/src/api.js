@@ -60,6 +60,16 @@ export async function getDashboard() {
   return parseResponse(await fetch(`${API_BASE_URL}/api/v1/dashboard`));
 }
 
+export async function updateAutoApprovalThreshold(value) {
+  return parseResponse(
+    await fetch(`${API_BASE_URL}/api/v1/config/auto-approval-threshold`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auto_approval_threshold: Number(value) }),
+    }),
+  );
+}
+
 export async function listMasterVendors({
   query = "",
   status = "",
