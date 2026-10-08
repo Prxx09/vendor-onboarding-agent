@@ -314,7 +314,6 @@ function Scorecard({ items = [], threshold = null, overall = null }) {
               <StatusPill value={item.status} />
             </div>
             <div className="score-number">{formatPercent(item.score)}</div>
-            <div className="progress-track"><div style={{ width: `${Math.max(0, Math.min(100, Number(item.score) || 0))}%` }} /></div>
             <p>{item.message}</p>
           </article>
         ))}
