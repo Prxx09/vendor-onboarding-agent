@@ -403,6 +403,7 @@ class VendorVerificationAgent:
         extractions = state.get("extractions", [])
         submitted = state.get("submitted_data", {})
         vendor_name = self._vendor_name(state)
+        company = self._doc(state, "business_registration")
 
         for item in extractions:
             candidate_name = item.legal_name or item.account_holder_name
