@@ -2808,3 +2808,372 @@ body {
     font-size: 14.5px;
   }
 }
+
+
+/* ==========================================================================
+   Enterprise Sidebar Navigation
+   Replaces the compact top tab navigation with a persistent left workspace
+   rail while preserving the same views, handlers, and backend status.
+   ========================================================================== */
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  align-items: stretch;
+  background: var(--app-bg);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 100vh;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 12px 14px;
+  overflow: hidden;
+  color: #d6dde7;
+  background: #26323d;
+  border-right: 1px solid #202a33;
+}
+
+.sidebar-brand {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: transparent;
+  color: #fff;
+  text-align: left;
+}
+
+.sidebar .brand-mark {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: #3458c8;
+  color: #fff;
+  box-shadow: none;
+}
+
+.sidebar-brand-copy {
+  min-width: 0;
+}
+
+.sidebar-brand-copy strong,
+.sidebar-brand-copy span {
+  display: block;
+}
+
+.sidebar-brand-copy strong {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+.sidebar-brand-copy span {
+  margin-top: 2px;
+  color: #9eabb9;
+  font-size: 10.5px;
+}
+
+.sidebar-section-label {
+  padding: 18px 10px 7px;
+  color: #7f8d9c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebar-nav button {
+  position: relative;
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 11px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #b8c3cf;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  transition: background .14s ease, color .14s ease;
+}
+
+.sidebar-nav button svg {
+  flex: 0 0 auto;
+  color: #9ba8b5;
+}
+
+.sidebar-nav button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav button:hover {
+  background: rgba(255,255,255,.065);
+  color: #fff;
+}
+
+.sidebar-nav button:hover svg {
+  color: #d7e0e9;
+}
+
+.sidebar-nav button.active {
+  background: #3a4856;
+  color: #fff;
+  box-shadow: inset 3px 0 0 #5ea2df;
+}
+
+.sidebar-nav button.active svg {
+  color: #fff;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 8px 2px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.sidebar-health {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+.sidebar-health .health-dot {
+  margin-top: 4px;
+  box-shadow: none;
+  border: 2px solid rgba(255,255,255,.12);
+}
+
+.sidebar-health strong,
+.sidebar-health span {
+  display: block;
+}
+
+.sidebar-health strong {
+  color: #e8edf3;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.sidebar-health span {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #8795a4;
+  font-size: 9.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-shell {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-shell .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255,255,255,.97);
+  backdrop-filter: blur(10px);
+}
+
+.workspace-heading {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.workspace-heading span {
+  color: #8a94a3;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.workspace-heading strong {
+  color: #273244;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.workspace-shell .health-badge {
+  justify-self: auto;
+  min-width: auto;
+}
+
+.workspace-shell .main-content {
+  width: calc(100% - 28px);
+  max-width: 1800px;
+  margin: 0 auto;
+  padding-top: 20px;
+  flex: 1;
+}
+
+.workspace-shell .footer {
+  margin-top: auto;
+}
+
+/* The old horizontal navigation is no longer part of the desktop shell. */
+.workspace-shell .nav-tabs {
+  display: none;
+}
+
+/* Keep page headings tighter under the persistent workspace header. */
+.workspace-shell .section-heading {
+  min-height: 48px;
+}
+
+/* Sidebar-aware sticky elements. */
+.workspace-shell .upload-panel {
+  top: 72px;
+}
+
+.workspace-shell .review-sidebar {
+  top: 72px;
+}
+
+@media (max-width: 1180px) {
+  .app-shell {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .sidebar-nav button {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .workspace-shell .main-content {
+    width: calc(100% - 20px);
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    width: 100%;
+    height: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid #202a33;
+  }
+
+  .sidebar-brand {
+    width: auto;
+    min-width: max-content;
+    min-height: 38px;
+    padding: 0 10px 0 0;
+    border-bottom: 0;
+    border-right: 1px solid rgba(255,255,255,.10);
+  }
+
+  .sidebar .brand-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .sidebar-brand-copy span,
+  .sidebar-section-label,
+  .sidebar-footer {
+    display: none;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    gap: 3px;
+    min-width: max-content;
+  }
+
+  .sidebar-nav button {
+    width: auto;
+    min-height: 36px;
+    padding: 7px 9px;
+    white-space: nowrap;
+  }
+
+  .sidebar-nav button.active {
+    box-shadow: inset 0 -2px 0 #66a8df;
+  }
+
+  .workspace-shell .topbar {
+    display: none;
+  }
+
+  .workspace-shell .main-content {
+    width: calc(100% - 18px);
+    padding-top: 16px;
+  }
+
+  .workspace-shell .upload-panel,
+  .workspace-shell .review-sidebar {
+    top: 62px;
+  }
+}
+
+@media (max-width: 620px) {
+  .sidebar-brand-copy strong {
+    display: none;
+  }
+
+  .sidebar-brand {
+    padding-right: 8px;
+  }
+
+  .sidebar-nav button span {
+    font-size: 11px;
+  }
+
+  .sidebar-nav button svg {
+    width: 16px;
+    height: 16px;
+  }
+}
