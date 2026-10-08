@@ -453,6 +453,78 @@ class VendorVerificationAgent:
                     )
                 )
 
+        tax_registry_check = next(
+            (
+                check
+                for check in checks
+                if check.source == "tax_registry" and isinstance(check.data, dict)
+            ),
+            None,
+        )
+        if tax_registry_check:
+            registry_data = tax_registry_check.data or {}
+            registry_pan = registry_data.get("pan")
+            submitted_pan = submitted.get("pan") or (tax.pan if tax else None)
+            if (
+                registry_pan
+                and submitted_pan
+                and str(registry_pan).strip().upper()
+                != str(submitted_pan).strip().upper()
+            ):
+                checks.append(
+                    VerificationEvidence(
+                        source="tax_registry:pan",
+                        status="MISMATCH",
+                        message="Tax registry PAN does not match the submitted/vendor document PAN.",
+                        data={
+                            "submitted_pan": submitted_pan,
+                            "registry_pan": registry_pan,
+                        },
+                    )
+                )
+
+            registry_name = registry_data.get("legal_name")
+            if registry_name:
+                registry_name_score = _name_score(vendor_name, registry_name)
+                if registry_name_score < 0.80:
+                    checks.append(
+                        VerificationEvidence(
+                            source="tax_registry:legal_name",
+                            status="MISMATCH",
+                            message=(
+                                "Tax ID is registered to a different legal entity "
+                                f"(name similarity {registry_name_score:.0%})."
+                            ),
+                            data={
+                                "vendor_name": vendor_name,
+                                "registry_legal_name": registry_name,
+                                "name_match_score": registry_name_score,
+                            },
+                        )
+                    )
+
+            registry_registration = registry_data.get("registration_number")
+            company_registration = company.registration_number if company else None
+            if (
+                registry_registration
+                and company_registration
+                and str(registry_registration).strip()
+                != str(company_registration).strip()
+            ):
+                checks.append(
+                    VerificationEvidence(
+                        source="tax_registry:registration_number",
+                        status="MISMATCH",
+                        message=(
+                            "Tax ID is linked to a different business registration number."
+                        ),
+                        data={
+                            "company_registration_number": company_registration,
+                            "tax_registry_registration_number": registry_registration,
+                        },
+                    )
+                )
+
         if submitted.get("compliance_confirmed") is False:
             checks.append(
                 VerificationEvidence(
