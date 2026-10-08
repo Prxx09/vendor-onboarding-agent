@@ -1841,7 +1841,6 @@ export default function App() {
       <div className={`workspace-shell ${view === "review" ? "review-mode" : ""}`}>
         <header className="topbar">
           <div className="workspace-heading">
-            <span>Vendor Verification</span>
             <strong>{currentSection}</strong>
           </div>
           <div className={`health-badge ${health}`}>
