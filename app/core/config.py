@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_FILES: int = 8
     MAX_FILE_SIZE_MB: int = 20
     MAX_COMBINED_UPLOAD_MB: int = 100
-    AUTO_APPROVAL_THRESHOLD: float | None = None
+    AUTO_APPROVAL_THRESHOLD: float | None = 80.0
     REQUIRED_INTAKE_FIELDS: str = (
         "legal_name,tax_id,bank_account,ifsc,registered_address,compliance_confirmed"
     )
