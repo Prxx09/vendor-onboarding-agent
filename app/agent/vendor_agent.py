@@ -636,6 +636,42 @@ class VendorVerificationAgent:
         if problematic:
             reasons.extend(check.message for check in problematic)
 
+            core_identity_sources = {
+                "company_registry",
+                "tax_registry",
+                "bank_account_registry",
+                "kyc_registry",
+            }
+            missing_identity_sources = {
+                check.source
+                for check in problematic
+                if check.status == "NOT_FOUND"
+                and check.source in core_identity_sources
+            }
+            no_registry_match = core_identity_sources.issubset(
+                missing_identity_sources
+            )
+
+            if no_registry_match:
+                reasons.append(
+                    "No matching company, tax, bank, or KYC/KYB record was found in the configured verification sources."
+                )
+                events.append(
+                    AgentEvent(
+                        step="decision",
+                        message=(
+                            "No matching records were found across the core verification systems. "
+                            "Vendor auto-rejected."
+                        ),
+                    )
+                )
+                return {
+                    "overall_status": "REJECTED",
+                    "recommendation": "REJECT",
+                    "reasons": list(dict.fromkeys(reasons)),
+                    "events": events,
+                }
+
             integrity_issue = any(
                 check.status == "MISMATCH"
                 or (
