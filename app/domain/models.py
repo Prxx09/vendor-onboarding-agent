@@ -68,7 +68,7 @@ class ScorecardItem(BaseModel):
 class VendorProcessResult(BaseModel):
     vendor_id: str
     vendor_name: str
-    overall_status: Literal["APPROVED", "ACTION_REQUIRED", "REVIEW_REQUIRED"]
+    overall_status: Literal["APPROVED", "ACTION_REQUIRED", "REVIEW_REQUIRED", "REJECTED"]
     recommendation: Literal["APPROVE", "WAIT_FOR_DOCUMENTS", "REJECT"]
     missing_documents: list[str] = Field(default_factory=list)
     extractions: list[DocumentExtraction] = Field(default_factory=list)
